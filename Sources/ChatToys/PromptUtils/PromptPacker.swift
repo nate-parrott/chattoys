@@ -1,12 +1,15 @@
 import Foundation
 
-struct Prompt {
+public struct Prompt {
     var charsPerToken: Double = 3
     var joiner: String = "\n"
     var roleTokenCount: Int = 2
 
+    public init() {
+    }
+
     // By default, priority increases with index
-    mutating func append(_ text: String, role: LLMMessage.Role, priority: Double? = nil, canTruncateToLength: Int? = nil, canOmit: Bool = false, omissionMessage: String? = nil, trim: Bool = true) {
+    public mutating func append(_ text: String, role: LLMMessage.Role, priority: Double? = nil, canTruncateToLength: Int? = nil, canOmit: Bool = false, omissionMessage: String? = nil, trim: Bool = true) {
         let priority = priority ?? Double(parts.count)
         let textFinal = trim ? text.trimmed.dropCommentedLines : text
         parts.append(Part(
@@ -30,23 +33,23 @@ struct Prompt {
         return true
     }
 
-    var prompt: String {
+    public var prompt: String {
         parts.map { $0.text }.joined(separator: joiner)   
     }
 
-    func packedPrompt(tokenCount: Int) -> [LLMMessage] {
+    public func packedPrompt(tokenCount: Int) -> [LLMMessage] {
         var p = self
         _ = p.reduce(toTokenBudget: tokenCount)
-        return messages
+        return p.messages
     }
 
-    var messages: [LLMMessage] {
+    public var messages: [LLMMessage] {
         parts.map { part in
                 .init(role: part.role, content: part.text)
         }
     }
 
-    var messageCount: Int {
+    public var messageCount: Int {
         parts.count
     }
 
@@ -147,6 +150,12 @@ struct Prompt {
     }
 }
 
+extension Prompt: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        messages.asConversationString
+    }
+}
+
 extension String {
     var dropCommentedLines: String {
         let parts = components(separatedBy: .newlines)
@@ -155,3 +164,4 @@ extension String {
         }.joined(separator: "\n")
     }
 }
+

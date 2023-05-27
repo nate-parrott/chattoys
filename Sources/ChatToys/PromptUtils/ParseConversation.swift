@@ -12,7 +12,7 @@ extension LLMMessage {
         U: what's up?
         A: not much, you?
      */
-    static func parseConversation(fromString string: String) -> [LLMMessage] {
+    public static func parseConversation(fromString string: String) -> [LLMMessage] {
         // Parse each line. If it starts with "System:", "User:" or "Assistant:" (or A:, U: or S:), then it's a message.
         // Otherwise, append to previous line.
         // At the end, trim output and remove empty lines.
@@ -72,7 +72,7 @@ extension LLMMessage {
     }
 }
 
-extension Sequence where Element == LLMMessage {
+public extension Sequence where Element == LLMMessage {
     var asConversationString: String {
         let lines = map { msg in
             "\(msg.role.rawValue): \(msg.content)"

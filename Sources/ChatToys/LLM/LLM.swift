@@ -20,6 +20,20 @@ public protocol ChatLLM {
     func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error>
 }
 
+public extension ChatLLM {
+    func complete(prompt: [LLMMessage]) async throws -> LLMMessage {
+        var last: LLMMessage?
+        for try await partial in completeStreaming(prompt: prompt) {
+            last = partial
+        }
+        guard let last else {
+            throw LLMError.unknown
+        }
+        return last
+    }
+}
+
+
 public enum LLMError: Error {
     case tooManyTokens
     case http(Int)
