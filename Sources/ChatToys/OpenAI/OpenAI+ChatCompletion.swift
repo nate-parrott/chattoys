@@ -61,10 +61,7 @@ extension ChatGPT: ChatLLM {
     }
 
     public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
-     var cr = ChatCompletionRequest(messages: prompt.map { $0.asChatGPT }, model: options.model.rawValue, temperature: options.temperature, stop: options.stop)
-        if let stop = cr.stop, stop.count == 0 {
-            cr.stop = nil
-        }
+     let cr = ChatCompletionRequest(messages: prompt.map { $0.asChatGPT }, model: options.model.rawValue, temperature: options.temperature, stop: options.stop.nilIfEmptyArray)
        let request = createChatRequest(completionRequest: cr)
 
        return AsyncThrowingStream { continuation in

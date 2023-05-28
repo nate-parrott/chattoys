@@ -9,9 +9,3 @@ public struct OpenAICredentials {
         self.orgId = orgId
     }
 }
-
-//enum OpenAIError: Error {
-//    case noChoices
-//    case invalidResponse(String)
-//    case noApiKey
-//}

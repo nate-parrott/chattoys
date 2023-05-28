@@ -163,5 +163,10 @@ extension String {
             return !line.trimmed.hasPrefix("%%")
         }.joined(separator: "\n")
     }
+
+    public func truncate(toTokens tokens: Int, charsPerToken: Double = 3) -> String {
+        let charLimit =  Int(floor(Double(tokens) * charsPerToken))
+        return truncateTail(maxLen: charLimit)
+    }
 }
 
