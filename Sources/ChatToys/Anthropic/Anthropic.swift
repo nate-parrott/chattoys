@@ -22,12 +22,14 @@ public struct Claude {
         public var maxTokens: Int
         public var stopSequences: [String]
         public var temperature: Double
+        public var printToConsole: Bool
 
-        public init(model: Model = .claudeInstantV1, maxTokens: Int = 1000, stopSequences: [String] = [], temperature: Double = 0.5) {
+        public init(model: Model = .claudeInstantV1, maxTokens: Int = 1000, stopSequences: [String] = [], temperature: Double = 0.5, printToConsole: Bool = false) {
             self.model = model
             self.maxTokens = maxTokens
             self.stopSequences = stopSequences
             self.temperature = temperature
+            self.printToConsole = printToConsole
         }
     }
 
@@ -54,6 +56,14 @@ extension Claude: ChatLLM {
         var completion: String
     }
 
+    public var tokenLimit: Int {
+        switch options.model {
+        case .claudeV1, .claudeInstantV1: return 8000 // cant find documented limit???
+        case .claudeInstantV1_100k, .claudeV1_100k: return 100_000
+        }
+    }
+
+
     public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
         let payload = Request(
             prompt: prompt.asAnthropicPrompt,
@@ -63,27 +73,10 @@ extension Claude: ChatLLM {
              temperature: options.temperature,
             stream: true
         )
+        if options.printToConsole {
+            print("[ChatLLM] Prompt:\n\(prompt.asAnthropicPrompt)")
+        }
        return AsyncThrowingStream { continuation in
-//            Task {
-//                do {
-//                    let endpoint = URL(string: "https://api.anthropic.com/v1/complete")!
-//                    var urlRequest = URLRequest(url: endpoint)
-//                    urlRequest.httpMethod = "POST"
-//                    urlRequest.httpBody = try! JSONEncoder().encode(payload)
-//                    urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
-//                    urlRequest.setValue(credentials.apiKey, forHTTPHeaderField: "X-API-Key")
-//
-//                    let (data, _) = try await URLSession.shared.data(for: urlRequest)
-//                    // print response as string
-//                    print(String(data: data, encoding: .utf8)!)
-//                    let response = try JSONDecoder().decode(Response.self, from: data)
-//                    continuation.yield(LLMMessage(role: .assistant, content: response.completion))
-//                    continuation.finish()
-//                } catch {
-//                    continuation.yield(with: .failure(error))
-//                }
-//            }
-
            let endpoint = URL(string: "https://api.anthropic.com/v1/complete")!
            var urlRequest = URLRequest(url: endpoint)
            urlRequest.httpMethod = "POST"
@@ -97,6 +90,9 @@ extension Claude: ChatLLM {
 
             src.onComplete { statusCode, reconnect, error in
                 if let statusCode, statusCode / 100 == 2 {
+                    if options.printToConsole {
+                        print("[ChatLLM] Response:\n\(message.content)")
+                    }
                     continuation.finish()
                 } else {
                     if let error {
@@ -114,11 +110,6 @@ extension Claude: ChatLLM {
                     let decoded = try JSONDecoder().decode(Response.self, from: Data(data.utf8))
                     message.content = decoded.completion
                     continuation.yield(message)
-//                    if let delta = decoded.choices.first?.delta {
-//                        message.role = delta.role ?? message.role
-//                        message.content += delta.content ?? ""
-//                        continuation.yield(message.asLLMMessage)
-//                    }
                 } catch {
                     print("Chat completion error: \(error)")
                     continuation.yield(with: .failure(error))

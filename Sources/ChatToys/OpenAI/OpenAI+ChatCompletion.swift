@@ -60,6 +60,14 @@ extension ChatGPT: ChatLLM {
         var choices: [Choice]
     }
 
+    public var tokenLimit: Int {
+        switch options.model {
+        case .gpt35_turbo: return 4096
+        case .gpt4: return 8192
+        case .gpt4_32k: return 32768
+        }
+    }
+
     public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
      let cr = ChatCompletionRequest(messages: prompt.map { $0.asChatGPT }, model: options.model.rawValue, temperature: options.temperature, stop: options.stop.nilIfEmptyArray)
        let request = createChatRequest(completionRequest: cr)

@@ -18,6 +18,7 @@ public struct LLMMessage: Equatable, Codable {
 
 public protocol ChatLLM {
     func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error>
+    var tokenLimit: Int { get } // aka context size
 }
 
 public extension ChatLLM {

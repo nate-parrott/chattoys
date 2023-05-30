@@ -29,6 +29,12 @@ extension String {
         }
         return self
     }
+    func removing(suffix: String) -> String {
+        if hasSuffix(suffix) {
+            return String(dropLast(suffix.count))
+        }
+        return self
+    }
 
     func containsOnlyCharacters(fromSet charSet: CharacterSet) -> Bool {
         trimmingCharacters(in: charSet) == ""
