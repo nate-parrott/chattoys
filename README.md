@@ -13,5 +13,6 @@ a simple library for playing with LLMs in Swift
 
 ### Usage
 
-See `Demo/Chat.swift`
+See [`Demo/Chat.swift`](https://github.com/nate-parrott/chattoys/blob/main/Demo/Demo/Chat.swift)
+
 
