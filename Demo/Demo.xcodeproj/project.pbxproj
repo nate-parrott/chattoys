@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5F23C3992A27BA6E00B35927 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F23C3982A27BA6E00B35927 /* Settings.swift */; };
+		5F23C39B2A27BA7F00B35927 /* Chat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F23C39A2A27BA7F00B35927 /* Chat.swift */; };
 		5F5314D82A1EA8DE00B1653B /* DemoApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5314D72A1EA8DE00B1653B /* DemoApp.swift */; };
 		5F5314DA2A1EA8DE00B1653B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F5314D92A1EA8DE00B1653B /* ContentView.swift */; };
 		5F5314DC2A1EA8DE00B1653B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5F5314DB2A1EA8DE00B1653B /* Assets.xcassets */; };
@@ -15,6 +17,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5F23C3982A27BA6E00B35927 /* Settings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
+		5F23C39A2A27BA7F00B35927 /* Chat.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Chat.swift; sourceTree = "<group>"; };
 		5F5314D42A1EA8DE00B1653B /* Demo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Demo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		5F5314D72A1EA8DE00B1653B /* DemoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoApp.swift; sourceTree = "<group>"; };
 		5F5314D92A1EA8DE00B1653B /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -58,6 +62,8 @@
 			isa = PBXGroup;
 			children = (
 				5F5314D72A1EA8DE00B1653B /* DemoApp.swift */,
+				5F23C39A2A27BA7F00B35927 /* Chat.swift */,
+				5F23C3982A27BA6E00B35927 /* Settings.swift */,
 				5F5314D92A1EA8DE00B1653B /* ContentView.swift */,
 				5F5314DB2A1EA8DE00B1653B /* Assets.xcassets */,
 				5F5314DD2A1EA8DE00B1653B /* Demo.entitlements */,
@@ -164,7 +170,9 @@
 			buildActionMask = 2147483647;
 			files = (
 				5F5314DA2A1EA8DE00B1653B /* ContentView.swift in Sources */,
+				5F23C39B2A27BA7F00B35927 /* Chat.swift in Sources */,
 				5F5314D82A1EA8DE00B1653B /* DemoApp.swift in Sources */,
+				5F23C3992A27BA6E00B35927 /* Settings.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

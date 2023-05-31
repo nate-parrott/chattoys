@@ -1,67 +1,30 @@
 import SwiftUI
 import ChatToys
 
+enum Screen: CaseIterable, Identifiable, Hashable {
+    case chat
+    case settings
+
+    var id: Self { self }
+}
+
 struct ContentView: View {
-    @State private var prompt = ""
-    @State private var completion: String = ""
-    @AppStorage("llm") private var llm = LLM.chatGPT
-    @AppStorage("key") private var key = ""
-    @State private var error: Error?
-
-    enum LLM: String, Equatable, Codable, CaseIterable {
-        case chatGPT
-        case claude
-    }
-
+    @State private var screen: Screen = .settings
     var body: some View {
-        Form {
-            Section {
-                TextField("API key", text: $key)
-                Picker("LLM", selection: $llm) {
-                    ForEach(LLM.allCases, id: \.self) {
-                        Text($0.rawValue)
-                    }
-                }.pickerStyle(.segmented)
-                TextField("Prompt", text: $prompt, onCommit: complete)
-                Button("Complete Chat", action: complete)
-            }
-            if let error {
-                Section {
-                    Text("Error: \("\(error)"))")
-                        .foregroundColor(.red)
+        TabView(selection: $screen) {
+            ChatDemo()
+                .tabItem {
+                    Label("Chat", systemImage: "bubble.left.and.bubble.right")
                 }
-            }
-            if completion != "" {
-                Section {
-                    Text(completion)
+                .tag(Screen.chat)
+                
+            SettingsView()
+                .tabItem {
+                    Label("Settings", systemImage: "gear")
                 }
-            }
+                .tag(Screen.settings)
         }
-        .formStyle(.grouped)
-    }
-
-    private func complete() {
-        Task {
-            let messages = [LLMMessage(role: .user, content: prompt)]
-            self.completion = ""
-            self.error = nil
-            do {
-                for try await partial in createLLM.completeStreaming(prompt: messages) {
-                    completion = partial.content
-                }
-            } catch {
-                self.error = error
-            }
-        }
-    }
-
-    private var createLLM: any ChatLLM {
-        switch llm {
-        case .chatGPT:
-            return ChatGPT(credentials: OpenAICredentials(apiKey: key))
-        case .claude:
-            return Claude(credentials: AnthropicCredentials(apiKey: key), options: .init(model: .claudeInstantV1))
-        }
+        .padding()
     }
 }
 
