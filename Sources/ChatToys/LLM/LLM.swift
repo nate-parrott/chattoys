@@ -22,6 +22,11 @@ public protocol ChatLLM {
 }
 
 public extension ChatLLM {
+    // We can't currently run the real tokenizer on device, so token counts are estimates. You should leave a little 'wiggle room'
+    var tokenLimitWithWiggleRoom: Int {
+        max(1, Int(round(Double(tokenLimit) * 0.85)) - 50)
+    }
+
     func complete(prompt: [LLMMessage]) async throws -> LLMMessage {
         var last: LLMMessage?
         for try await partial in completeStreaming(prompt: prompt) {

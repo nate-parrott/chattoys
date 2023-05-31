@@ -31,10 +31,18 @@ struct ChatDemo: View {
         messages.append(LLMMessage(role: .user, content: text))
         botIsTyping = true
 
+        // Fit prompt into context window:
+        var prompt = Prompt()
+        for message in messages {
+            prompt.append(message.content, role: message.role, canOmit: true, omissionMessage: "[Older messages hidden]")
+        }
+        let llm = LLM.create()
+        let truncatedPrompt = prompt.packedPrompt(tokenCount: llm.tokenLimitWithWiggleRoom)
+
         Task {
             do {
                 var hasAppended = false
-                for try await partial in LLM.create().completeStreaming(prompt: self.messages) {
+                for try await partial in llm.completeStreaming(prompt: truncatedPrompt) {
                     if hasAppended {
                         messages.removeLast()
                     }
@@ -45,6 +53,7 @@ struct ChatDemo: View {
             } catch {
                 let text = "Error: \(error)"
                 messages.append(.init(role: .system, content: text))
+                self.botIsTyping = false
             }
         }
     }

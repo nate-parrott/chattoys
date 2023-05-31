@@ -23,7 +23,7 @@ public struct ChatThreadView<Message, ID: Hashable, MessageView: View>: View {
     public var body: some View {
         ScrollViewReader { scrollReader in
             scrollView
-            .animation(.niceDefault, value: messages.count)
+//            .animation(.niceDefault, value: messages.count)
             .onAppearOrChange(of: scrollToId) { id in
                 if let scrollToId {
                     withAnimation {
