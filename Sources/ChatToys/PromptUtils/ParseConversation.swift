@@ -21,7 +21,7 @@ extension LLMMessage {
             switch string.lowercased() {
             case "system", "s":
                 return .system
-            case "user", "u":
+            case "user", "u", "human", "h":
                 return .user
             case "assistant", "a":
                 return .assistant

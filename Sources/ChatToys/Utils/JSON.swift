@@ -20,3 +20,53 @@ extension Array {
         isEmpty ? nil : self
     }
 }
+
+extension String {
+    var byExtractingOnlyCodeBlocks: String {
+        let parts = self.components(separatedBy: "```")
+        if parts.count == 1 {
+            return self
+        }
+        return parts.enumerated().filter { $0.offset % 2 == 1 }.map { $0.element }.joined(separator: "\n")
+    }
+
+    var capJson: String {
+        enum Delimiter: String {
+            case object = "{"
+            case array = "["
+            case string = "\""
+        }
+        var delimiterStack = [Delimiter]()
+
+        var prevChar: Character?
+        for char in self {
+            if delimiterStack.last == .string {
+                if char == "\"", let prevChar, prevChar != "\\" {
+                    _ = delimiterStack.popLast()
+                }
+            } else {
+                switch char {
+                case "{": delimiterStack.append(.object)
+                case "[": delimiterStack.append(.array)
+                case "\"": delimiterStack.append(.string)
+                case "}", "]": _ = delimiterStack.popLast()
+                default: ()
+                }
+            }
+            prevChar = char
+        }
+
+        var cappedString = self
+        if cappedString.hasSuffix(",") {
+            cappedString = String(cappedString.dropLast(1))
+        }
+        for delim in delimiterStack.reversed() {
+            switch delim {
+            case .array: cappedString += "]"
+            case .string: cappedString += "\""
+            case .object: cappedString += "}"
+            }
+        }
+        return cappedString
+    }
+}

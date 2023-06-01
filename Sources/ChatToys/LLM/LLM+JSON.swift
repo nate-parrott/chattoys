@@ -28,31 +28,20 @@ extension ChatLLM {
         }
     }
 
-    public func completeStreamingWithJSONOutputSingleObject<T: Codable>(prompt: [LLMMessage], example: T) -> AsyncThrowingStream<T, Error> {
-        let jsonPrompt = """
-Output your answer as a valid JSON object, in this exact format:
-\(example.jsonStringNotPretty)
-Final output, ONLY the valid JSON in the structure above:
-"""
-        let fullPrompt: [LLMMessage] = prompt + [.init(role: .system, content: jsonPrompt)]
+    public func completeStreamingWithJSONObject<T: Codable>(promptWithJSONExplanation: [LLMMessage], type: T.Type) -> AsyncThrowingStream<T, Error> {
         return AsyncThrowingStream { cont in
             Task {
                 do {
-                    for try await partial in self.completeStreaming(prompt: fullPrompt) {
-                        for tryCloseArray in [false, true] {
-                            var text = partial.content
-                            if tryCloseArray {
-                                if text.hasSuffix(",") {
-                                    _ = text.popLast()
-                                }
-                                text = text + "]"
-                            }
-                            if let json = try? JSONDecoder().decode(T.self, from: text.data(using: .utf8)!) {
-                                cont.yield(json)
-                                break
-                            }
+                    var lastText = ""
+                    for try await partial in self.completeStreaming(prompt: promptWithJSONExplanation) {
+                        lastText = partial.content.byExtractingOnlyCodeBlocks.removing(prefix: "json")
+                        if let json = try? JSONDecoder().decode(T.self, from: lastText.capJson.data(using: .utf8)!) {
+                            cont.yield(json)
+//                            break
                         }
                     }
+                    let json = try JSONDecoder().decode(T.self, from: lastText.capJson.data(using: .utf8)!)
+                    cont.yield(json)
                     cont.finish()
                 }
                 catch {
@@ -62,42 +51,34 @@ Final output, ONLY the valid JSON in the structure above:
         }
     }
 
-    public func completeStreamingWithJSONOutput<T: Codable>(prompt: [LLMMessage], examples: [T]) -> AsyncThrowingStream<T, Error> {
-        return AsyncThrowingStream { cont in
-            Task {
-                var count = 0
-                do {
-                    for try await partial in self.completeStreamingWithJSONOutputSingleObject(prompt: prompt, example: examples) {
-                        for object in partial.suffix(from: count) {
-                            cont.yield(object)
-                        }
-                        count = partial.count
-                    }
-                    cont.finish()
-                }
-                catch {
-                    cont.yield(with: .failure(error))
-                }
-            }
-        }
-//        return completeStreamingWithJSONOutputSingleObject(prompt: prompt, example: examples).map { array in
-//            var lastObject =
-//        }
-//        var jsonPrompt = """
-//Output your answer as one or more JSON objects, each on one line.
-//Example output:
-//"""
-//        for example in examples {
-//            jsonPrompt += "\n" + example.jsonStringNotPretty
-//        }
-////        if examples.count == 1 {
-////            jsonPrompt += "\n" + examples[0].jsonStringNotPretty
-////        }
-//        jsonPrompt += "\nFinal output, one complete JSON object per line, in the exact structure above, NO newlines within objects:"
-//        let fullPrompt: [LLMMessage] = prompt + [.init(role: .system, content: jsonPrompt)]
-//        return completeStreamingLineByLine(prompt: fullPrompt).compactMap { str in
-//            let str2 = str.removing(suffix: ",")
-//            return try? JSONDecoder().decode(T.self, from: str2.data(using: .utf8)!)
-//        }
+    /// Attempts to extract partial JSON output and periodically deliver it
+    public func completeStreamingWithJSONObject<T: Codable>(prompt: [LLMMessage], example: T) -> AsyncThrowingStream<T, Error> {
+        let jsonPrompt = """
+Output your answer as a valid JSON object, in this exact format:
+\(example.jsonStringNotPretty)
+Final output, ONLY the valid JSON in the structure above:
+"""
+        let fullPrompt: [LLMMessage] = prompt + [.init(role: .system, content: jsonPrompt)]
+        return completeStreamingWithJSONObject(promptWithJSONExplanation: fullPrompt, type: T.self)
     }
+
+//    public func completeStreamingWithJSONArray<T: Codable>(prompt: [LLMMessage], examples: [T]) -> AsyncThrowingStream<T, Error> {
+//        return AsyncThrowingStream { cont in
+//            Task {
+//                var count = 0
+//                do {
+//                    for try await partial in self.completeStreamingWithJSONObject(prompt: prompt, example: examples) {
+//                        for object in partial.suffix(from: count) {
+//                            cont.yield(object)
+//                        }
+//                        count = partial.count
+//                    }
+//                    cont.finish()
+//                }
+//                catch {
+//                    cont.yield(with: .failure(error))
+//                }
+//            }
+//        }
+//    }
 }
