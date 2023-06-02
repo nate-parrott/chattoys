@@ -1,5 +1,5 @@
 import Foundation
-import Fuzi
+import SwiftSoup
 
 public struct AnyScraperInstructions: Codable {
     public var fieldSelectors: [String: String] // maps field name -> selector
@@ -24,25 +24,25 @@ extension ScraperInstructions {
         var items = [Item]()
         var currentItemFields = [String: String]()
 
-        let doc = try HTMLDocument(string: html)
+        let doc = try SwiftSoup.parse(html, baseURL?.absoluteString ?? "")
 
-        typealias E = Fuzi.XMLElement
+        typealias E = SwiftSoup.Element
 
         // Delete excluded selectors
         for selector in base.excludeSelectors {
-            for el in doc.css(selector) {
-                el.parent.remov
+            for el in try doc.select(selector) {
+                try el.remove()
             }
         }
 
         // TODO: Find a faster way of looking up elements than equality
-        var elementsMatchingField = [String: [E]]()
+        var elementsMatchingField = [String: Set<E>]()
         for (field, selector) in base.fieldSelectors {
 //            var els = [Fuzi.XMLElement]()
 //            for element in doc.css(selector) {
 //                allElements.append(element)
 //            }
-            elementsMatchingField[field] = Array(doc.css(selector))
+            elementsMatchingField[field] = try Set(doc.select(selector))
         }
 
         let fieldsForElement: (E) -> [String] = { el in
@@ -70,7 +70,7 @@ extension ScraperInstructions {
             currentItemFields[field] = value
         }
 
-        try doc.body?.iterateAllElements(block: { element in
+        try doc.body()?.iterateAllElements(block: { element in
             for field in fieldsForElement(element) {
                 let fieldAttr = base.fieldAttributes?[field] ?? .innerText
                 if let value = element.value(fieldAttribute: fieldAttr, baseURL: baseURL) {
@@ -85,32 +85,41 @@ extension ScraperInstructions {
     }
 }
 
-private extension Fuzi.XMLElement {
+private extension SwiftSoup.Element {
     func value(fieldAttribute: AnyScraperInstructions.FieldAttribute, baseURL: URL?) -> String? {
         switch fieldAttribute {
         case .value:
-            return attributes["value"]
+            return safeAttr("value")
         case .href:
             return urlAttribute(name: "href", baseURL: baseURL)
         case .src:
             return urlAttribute(name: "src", baseURL: baseURL)
         case .innerText:
-            return self.stringValue.trimWhitespaceAroundNewlines // TODO: make sure we preserve internal newlines properly
+            return try? self.text(trimAndNormaliseWhitespace: true)
+                // .trimWhitespaceAroundNewlines // TODO: make sure we preserve internal newlines properly
+        }
+    }
+
+    private func safeAttr(_ key: String) -> String? {
+        do {
+            return try attr(key)
+        } catch {
+            return nil
         }
     }
 
     private func urlAttribute(name: String, baseURL: URL?) -> String? {
-        if let val = attributes[name] {
+        if let val = safeAttr(name) {
             return URL(string: val, relativeTo: baseURL)?.absoluteString
         }
         return nil
     }
 
     // return true if should recur
-    func iterateAllElements(block: (Fuzi.XMLElement) throws -> Bool) throws {
+    func iterateAllElements(block: (SwiftSoup.Element) throws -> Bool) throws {
         let recur = try block(self)
         if recur {
-            for child in children {
+            for child in children() {
                 try child.iterateAllElements(block: block)
             }
         }
