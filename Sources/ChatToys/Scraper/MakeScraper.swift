@@ -6,7 +6,7 @@ enum ScraperError: Error {
 }
 
 extension ChatLLM {
-    public func makeScraper<T: Codable>(htmlPage: String, baseURL: URL?, example: T, extractName: String = "items") async throws -> ScraperInstructions<T> {
+    public func makeScraper<T: Codable>(htmlPage: String, baseURL: URL?, example: T, extractName: String = "items", iterations: Int = 1) async throws -> ScraperInstructions<T> {
         var prompt = Prompt()
         let structureExample = try example.prettyPrintedByReplacingAllFieldsWithEmptyString()
         let fieldNames = try example.fieldNames()
@@ -50,7 +50,7 @@ Here is what an extractionRule looks like:
 }
 ```
 
-First, write bullet points describing a few CSS selectors that you'd use to reference each field.
+First, write bullet points describing a few CSS selectors that you'd use to reference each field. Try to choose STABLE, SEMANTIC selectors, if possible, so that my program does not break if the website changes slightly. (e.g. rules like '.content h1' are good, '.css_23823' are bad)
 
 Then, write an extraction rule within a ```code block```:
 """, role: .user)
@@ -58,7 +58,31 @@ Then, write an extraction rule within a ```code block```:
         guard let json = try await completeJSONObject(promptWithJSONExplanation: prompt.packedPrompt(tokenCount: tokenLimitWithWiggleRoom), type: AnyScraperInstructions.self) else {
             throw ScraperError.failedToGenerateRule
         }
-        return ScraperInstructions<T>(base: json)
+        var instructions = ScraperInstructions<T>(base: json)
+
+        for _ in 0..<(iterations - 1) {
+            prompt.append("```\(instructions.base.jsonString)```", role: .assistant)
+            var result: String = ""
+            do {
+                result = try instructions.extract(fromHTML: htmlPage, baseURL: baseURL).jsonString.truncate(toTokens: 400)
+            } catch {
+                result = "Error: \(error)"
+            }
+            prompt.append("""
+OK, here's the result:
+```
+\(result)
+```
+Do you want to refine your answer?
+""", role: .user)
+            if let result = try await completeJSONObject(promptWithJSONExplanation: prompt.packedPrompt(tokenCount: tokenLimitWithWiggleRoom), type: AnyScraperInstructions.self) {
+                instructions = .init(base: result)
+            } else {
+                break
+            }
+        }
+
+        return instructions
     }
 }
 

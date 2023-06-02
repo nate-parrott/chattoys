@@ -23,8 +23,12 @@ struct Scraper: View {
                 TextField("URL", text: $url)
             }
             Section {
-                Button("Make scraper", action: scrape)
+                Button("Make scraper (1 iteration)", action: { scrape(iterations: 1) })
                 .disabled(running)
+
+                Button("Make scraper (2 iterations)", action: { scrape(iterations: 2) })
+                .disabled(running)
+
 
                 if let errorMessage = errorMessage {
                     Text(errorMessage)
@@ -46,7 +50,7 @@ struct Scraper: View {
         .formStyle(.grouped)
     }
 
-    private func scrape() {
+    private func scrape(iterations: Int) {
         guard let url = URL(string: url) else {
             errorMessage = "Invalid URL"
             return
@@ -62,7 +66,7 @@ struct Scraper: View {
                 let (data, _) = try await URLSession.shared.data(from: url)
                 let html = String(data: data, encoding: .utf8)!
                 let llm = LLM.create()
-                let scraper = try await llm.makeScraper(htmlPage: html, baseURL: url, example: Item(title: "", link: "", subtitle: "", image: ""))  
+                let scraper = try await llm.makeScraper(htmlPage: html, baseURL: url, example: Item(title: "", link: "", subtitle: "", image: ""), iterations: iterations)
                 self.scraper = scraper
                 self.items = try scraper.extract(fromHTML: html, baseURL: url)
             } catch {
@@ -78,7 +82,7 @@ struct Scraper: View {
 
         var body: some View {
             HStack {
-//                            URLImageView(url: item.image ?? "")
+                URLImageView(url: item.image ?? "")
                 VStack(alignment: .leading) {
                     Text(item.title)
                     if let sub = item.subtitle {
