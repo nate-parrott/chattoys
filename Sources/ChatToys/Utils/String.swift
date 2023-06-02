@@ -56,4 +56,14 @@ extension String {
         let data = try! JSONSerialization.data(withJSONObject: self, options: .fragmentsAllowed)
         return String(data: data, encoding: .utf8)!
     }
+
+    var trimWhitespaceAroundNewlines: String {
+        return self.trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: .newlines)
+            .map { line in
+                return line.trimmingCharacters(in: .whitespacesAndNewlines)
+            }
+            .filter { $0 != "" }
+            .joined(separator: "\n")
+    }
 }
