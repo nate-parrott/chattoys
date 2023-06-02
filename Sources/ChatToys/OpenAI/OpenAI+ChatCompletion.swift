@@ -12,12 +12,14 @@ public struct ChatGPT {
         public var max_tokens: Int
         public var model: Model
         public var stop: [String]
+        public var printToConsole: Bool
 
-        public init(temp: Double = 0.2, maxTokens: Int = 1000, model: Model = .gpt35_turbo, stop: [String] = []) {
+        public init(temp: Double = 0.2, maxTokens: Int = 1000, model: Model = .gpt35_turbo, stop: [String] = [], printToConsole: Bool = false) {
             self.temperature = temp
             self.max_tokens = maxTokens
             self.model = model
             self.stop = stop
+            self.printToConsole = printToConsole
         }
     }
 
@@ -72,6 +74,10 @@ extension ChatGPT: ChatLLM {
      let cr = ChatCompletionRequest(messages: prompt.map { $0.asChatGPT }, model: options.model.rawValue, temperature: options.temperature, stop: options.stop.nilIfEmptyArray)
        let request = createChatRequest(completionRequest: cr)
 
+        if options.printToConsole {
+            print("OpenAI request:\n\((prompt.asConversationString))")
+        }
+
        return AsyncThrowingStream { continuation in
            let src = EventSource(urlRequest: request)
 
@@ -79,6 +85,9 @@ extension ChatGPT: ChatLLM {
 
            src.onComplete { statusCode, reconnect, error in
                if let statusCode, statusCode / 100 == 2 {
+                   if options.printToConsole {
+                       print("OpenAI response:\n\((message.content))")
+                   }
                    continuation.finish()
                } else {
                    if let error {

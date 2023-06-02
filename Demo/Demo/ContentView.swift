@@ -3,6 +3,7 @@ import ChatToys
 
 enum Screen: CaseIterable, Identifiable, Hashable {
     case chat
+    case scraping
     case settings
 
     var id: Self { self }
@@ -17,6 +18,12 @@ struct ContentView: View {
                     Label("Chat", systemImage: "bubble.left.and.bubble.right")
                 }
                 .tag(Screen.chat)
+
+            Scraper()
+                .tabItem {
+                    Label("Scraping", systemImage: "text.magnifyingglass")
+                }
+                .tag(Screen.scraping)
                 
             SettingsView()
                 .tabItem {

@@ -5,17 +5,18 @@ public struct AnyScraperInstructions: Codable {
     public var fieldSelectors: [String: String] // maps field name -> selector
     public var fieldAttributes: [String: FieldAttribute]?
     public var firstField: String
-    public var excludeSelectors: [String]
+    public var excludeSelectors: [String]?
 
     public enum FieldAttribute: String, Codable {
         case innerText
         case value
         case src
         case href
+        case unknown
     }
 }
 
-public struct ScraperInstructions<Item: Codable> {
+public struct ScraperInstructions<Item: Codable>: Codable {
     public var base: AnyScraperInstructions
 }
 
@@ -29,19 +30,14 @@ extension ScraperInstructions {
         typealias E = SwiftSoup.Element
 
         // Delete excluded selectors
-        for selector in base.excludeSelectors {
+        for selector in base.excludeSelectors ?? [] {
             for el in try doc.select(selector) {
                 try el.remove()
             }
         }
 
-        // TODO: Find a faster way of looking up elements than equality
         var elementsMatchingField = [String: Set<E>]()
         for (field, selector) in base.fieldSelectors {
-//            var els = [Fuzi.XMLElement]()
-//            for element in doc.css(selector) {
-//                allElements.append(element)
-//            }
             elementsMatchingField[field] = try Set(doc.select(selector))
         }
 
@@ -67,7 +63,9 @@ extension ScraperInstructions {
             if field == base.firstField {
                 try finishCurrentItem()
             }
-            currentItemFields[field] = value
+            if currentItemFields[field] == nil {
+                currentItemFields[field] = value
+            }
         }
 
         try doc.body()?.iterateAllElements(block: { element in
@@ -96,7 +94,7 @@ private extension SwiftSoup.Element {
             return urlAttribute(name: "src", baseURL: baseURL)
         case .innerText:
             return try? self.text(trimAndNormaliseWhitespace: true)
-                // .trimWhitespaceAroundNewlines // TODO: make sure we preserve internal newlines properly
+        case .unknown: return nil
         }
     }
 

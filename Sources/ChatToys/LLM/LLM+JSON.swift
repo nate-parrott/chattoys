@@ -62,23 +62,11 @@ Final output, ONLY the valid JSON in the structure above:
         return completeStreamingWithJSONObject(promptWithJSONExplanation: fullPrompt, type: T.self)
     }
 
-//    public func completeStreamingWithJSONArray<T: Codable>(prompt: [LLMMessage], examples: [T]) -> AsyncThrowingStream<T, Error> {
-//        return AsyncThrowingStream { cont in
-//            Task {
-//                var count = 0
-//                do {
-//                    for try await partial in self.completeStreamingWithJSONObject(prompt: prompt, example: examples) {
-//                        for object in partial.suffix(from: count) {
-//                            cont.yield(object)
-//                        }
-//                        count = partial.count
-//                    }
-//                    cont.finish()
-//                }
-//                catch {
-//                    cont.yield(with: .failure(error))
-//                }
-//            }
-//        }
-//    }
+    public func completeJSONObject<T: Codable>(promptWithJSONExplanation: [LLMMessage], type: T.Type) async throws -> T? {
+        var last: T? = nil
+        for try await json in completeStreamingWithJSONObject(promptWithJSONExplanation: promptWithJSONExplanation, type: type) {
+            last = json
+        }
+        return last
+    }
 }

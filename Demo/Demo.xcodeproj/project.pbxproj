@@ -14,6 +14,7 @@
 		5F5314DC2A1EA8DE00B1653B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5F5314DB2A1EA8DE00B1653B /* Assets.xcassets */; };
 		5F5314E02A1EA8DE00B1653B /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5F5314DF2A1EA8DE00B1653B /* Preview Assets.xcassets */; };
 		5F5314EC2A1EA94F00B1653B /* ChatToys in Frameworks */ = {isa = PBXBuildFile; productRef = 5F5314EB2A1EA94F00B1653B /* ChatToys */; };
+		5FDBD3A12A2A8801005C8D14 /* Scraper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDBD3A02A2A8801005C8D14 /* Scraper.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -26,6 +27,7 @@
 		5F5314DD2A1EA8DE00B1653B /* Demo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Demo.entitlements; sourceTree = "<group>"; };
 		5F5314DF2A1EA8DE00B1653B /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		5F5314E72A1EA90B00B1653B /* chattoys */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = chattoys; path = ..; sourceTree = "<group>"; };
+		5FDBD3A02A2A8801005C8D14 /* Scraper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scraper.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -65,6 +67,7 @@
 				5F23C39A2A27BA7F00B35927 /* Chat.swift */,
 				5F23C3982A27BA6E00B35927 /* Settings.swift */,
 				5F5314D92A1EA8DE00B1653B /* ContentView.swift */,
+				5FDBD3A02A2A8801005C8D14 /* Scraper.swift */,
 				5F5314DB2A1EA8DE00B1653B /* Assets.xcassets */,
 				5F5314DD2A1EA8DE00B1653B /* Demo.entitlements */,
 				5F5314DE2A1EA8DE00B1653B /* Preview Content */,
@@ -172,6 +175,7 @@
 				5F5314DA2A1EA8DE00B1653B /* ContentView.swift in Sources */,
 				5F23C39B2A27BA7F00B35927 /* Chat.swift in Sources */,
 				5F5314D82A1EA8DE00B1653B /* DemoApp.swift in Sources */,
+				5FDBD3A12A2A8801005C8D14 /* Scraper.swift in Sources */,
 				5F23C3992A27BA6E00B35927 /* Settings.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
