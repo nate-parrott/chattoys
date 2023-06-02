@@ -59,12 +59,18 @@ struct Scraper: View {
         items = nil
         scraper = nil
 
+        enum ScrapeError: Error {
+            case invalidEncoding
+        }
+
         Task {
             self.running = true
             defer { self.running = false }
             do {
                 let (data, _) = try await URLSession.shared.data(from: url)
-                let html = String(data: data, encoding: .utf8)!
+                guard let html = String(data: data, encoding: .utf8) else {
+                    throw ScrapeError.invalidEncoding
+                }
                 let llm = LLM.create()
                 let scraper = try await llm.makeScraper(htmlPage: html, baseURL: url, example: Item(title: "", link: "", subtitle: "", image: ""), iterations: iterations)
                 self.scraper = scraper

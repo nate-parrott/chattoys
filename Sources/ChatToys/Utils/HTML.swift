@@ -33,6 +33,15 @@ extension String {
             try doc.select("[srcset]").removeAttr("srcset")
             doc.outputSettings().prettyPrint(pretty: false).syntax(syntax: .html)
             
+            // Truncute src attributes to 500 chars:
+            for el in try doc.select("[src]") {
+                if let src = try? el.attr("src") {
+                    if src.count > 500 {
+                        try el.attr("src", src.prefix(500) + "...")
+                    }
+                }
+            }
+
             if let truncateTextNodes {
                 for el in try doc.select("*") {
                     if el.children().count == 0, let text = try? el.text() {
