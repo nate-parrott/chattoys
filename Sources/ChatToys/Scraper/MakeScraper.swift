@@ -42,7 +42,7 @@ Here is what an extractionRule looks like:
     // valid values are "innerText", "value", "src", "href". "unknown" if you can't find an attribute that provides this info.
     "fieldAttributes": { \(fieldSelectors) },
 
-    // firstField is the name of the field that appears first in the HTML. This tells my program when a new item starts.
+    // firstField is the name of the field (not the selector) that appears first (or highest) in the HTML. This tells my program when a new item starts.
     "firstField": "...",
 
     // excludeSelectors is an array of CSS selectors whose content we should ignore. optional.
@@ -50,9 +50,9 @@ Here is what an extractionRule looks like:
 }
 ```
 
-First, write bullet points describing a few CSS selectors that you'd use to reference each field. Try to choose STABLE, SEMANTIC selectors, if possible, so that my program does not break if the website changes slightly. (e.g. rules like '.content h1' are good, '.css_23823' are bad)
-
-Then, write an extraction rule within a ```code block```:
+Output only two things:
+1. First, write bullet points describing a few CSS selectors that you'd use to reference each field. Try to choose STABLE, SEMANTIC selectors, if possible, so that my program does not break if the website changes slightly. (e.g. rules like '.content h1' are good, '.css_23823' are bad)
+2. Then, write an extraction rule within a ```code block```.
 """, role: .user)
 
         guard let json = try await completeJSONObject(promptWithJSONExplanation: prompt.packedPrompt(tokenCount: tokenLimitWithWiggleRoom), type: AnyScraperInstructions.self) else {
@@ -74,6 +74,7 @@ OK, here's the result:
 \(result)
 ```
 Do you want to refine your answer?
+Output only the refined extraction rule (or the same one, if it was good beforee) below, in a ```code block```:
 """, role: .user)
             if let result = try await completeJSONObject(promptWithJSONExplanation: prompt.packedPrompt(tokenCount: tokenLimitWithWiggleRoom), type: AnyScraperInstructions.self) {
                 instructions = .init(base: result)
