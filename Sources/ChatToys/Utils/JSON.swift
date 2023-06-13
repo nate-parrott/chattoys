@@ -22,12 +22,16 @@ extension Array {
 }
 
 extension String {
-    var byExtractingOnlyCodeBlocks: String {
-        let parts = self.components(separatedBy: "```")
-        if parts.count == 1 {
-            return self
+    public var byExtractingOnlyCodeBlocks: String {
+        for separator in ["```", "`"] {
+            let parts = self.components(separatedBy: separator)
+            if parts.count == 1 {
+                continue
+            }
+            let code = parts.enumerated().filter { $0.offset % 2 == 1 }.map { $0.element }.joined(separator: "\n")
+            return code.trimmingCharacters(in: CharacterSet(charactersIn: "`"))
         }
-        return parts.enumerated().filter { $0.offset % 2 == 1 }.map { $0.element }.joined(separator: "\n")
+        return self
     }
 
     var capJson: String {

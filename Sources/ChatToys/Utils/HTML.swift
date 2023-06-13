@@ -21,7 +21,7 @@ extension String {
 //            .joined(separator: "\n")
 //    }
 
-    func simplifyHTML(truncateTextNodes: Int?) -> String? {
+    public func simplifyHTML(truncateTextNodes: Int?) -> String? {
         // Use beautifulsoup to simplify html
         // Remove script and style tags.
         // Remove imagesrcset attr

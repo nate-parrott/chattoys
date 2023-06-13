@@ -15,7 +15,6 @@ public struct BingSearchEngine: WebSearchEngine {
         urlComponents.queryItems = [
             URLQueryItem(name: "q", value: query),
             URLQueryItem(name: "mkt", value: "en-US"),
-            // URLQueryItem(name: "responseFilter", value: "Webpages"),
             URLQueryItem(name: "count", value: "\(count)"),
         ]
         var request = URLRequest(url: urlComponents.url!)
@@ -23,21 +22,10 @@ public struct BingSearchEngine: WebSearchEngine {
         request.setValue(apiKey, forHTTPHeaderField: "Ocp-Apim-Subscription-Key")
         let (data, _) = try await URLSession.shared.data(for: request)
 
-        // let json = try JSONSerialization.jsonObject(with: data, options: [])
-        // let prettyData = try JSONSerialization.data(withJSONObject: json, options: .prettyPrinted)
-        // print(String(data: prettyData, encoding: .utf8)!)
-
         let response = try JSONDecoder().decode(BingAPIResponse.self, from: data)
         return response.webPages?.value.map { WebSearchResult(url: $0.url, title: $0.name, snippet: $0.snippet) } ?? []
     }
 }
-
-// public struct WebSearchResult: Equatable, Codable, Identifiable {
-//     public var id: URL { url }
-//     public var url: URL
-//     public var title: String
-//     public var snippet: String?
-// }
 
 struct BingAPIResponse: Codable {
     struct TimezoneResult: Codable {
