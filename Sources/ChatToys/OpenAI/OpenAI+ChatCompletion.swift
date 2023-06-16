@@ -3,6 +3,7 @@ import Foundation
 public struct ChatGPT {
     public enum Model: String, Codable {
         case gpt35_turbo = "gpt-3.5-turbo"
+        case gpt35_turbo_16k = "gpt-3.5-turbo-16k"
         case gpt4 = "gpt-4"
         case gpt4_32k = "gpt-4-32k"
     }
@@ -65,6 +66,7 @@ extension ChatGPT: ChatLLM {
     public var tokenLimit: Int {
         switch options.model {
         case .gpt35_turbo: return 4096
+        case .gpt35_turbo_16k: return 16384
         case .gpt4: return 8192
         case .gpt4_32k: return 32768
         }
