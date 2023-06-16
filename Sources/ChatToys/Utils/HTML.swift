@@ -1,26 +1,6 @@
 import SwiftSoup
 
 extension String {
-//    var htmlToPlain: String {
-//        do {
-//            let doc = try HTMLDocument(string: self)
-//            return (doc.root?.stringValue.trimWhitespaceAroundNewlines ?? self)
-//        }
-//        catch {
-//            return self
-//        }
-//    }
-
-//    var trimWhitespaceAroundNewlines: String {
-//        return self.trimmingCharacters(in: .whitespacesAndNewlines)
-//            .components(separatedBy: .newlines)
-//            .map { line in
-//                return line.trimmingCharacters(in: .whitespacesAndNewlines)
-//            }
-//            .filter { $0 != "" }
-//            .joined(separator: "\n")
-//    }
-
     public func simplifyHTML(truncateTextNodes: Int?) -> String? {
         // Use beautifulsoup to simplify html
         // Remove script and style tags.
