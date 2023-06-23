@@ -1,6 +1,6 @@
 import Foundation
 
-public struct Prompt {
+public struct Prompt: Equatable {
     var charsPerToken: Double = 3
     var joiner: String = "\n"
     var roleTokenCount: Int = 2
@@ -55,7 +55,7 @@ public struct Prompt {
 
     // MARK: - Internals
 
-    private struct Part {
+    private struct Part: Equatable {
         var id: String
         var text: String
         var role: LLMMessage.Role
