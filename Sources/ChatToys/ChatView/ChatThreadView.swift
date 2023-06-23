@@ -65,11 +65,11 @@ public struct ChatThreadView<Message, ID: Hashable, MessageView: View>: View {
     }
 
     private var scrollToId: AnyHashable? {
-        if typingIndicator {
-            return AnyHashable("typing")
-        } else if let last = messages.last {
-            return AnyHashable(id(last, messages.count - 1))
-        }
+//        if typingIndicator {
+//            return AnyHashable("typing")
+//        } else if let last = messages.last {
+//            return AnyHashable(id(last, messages.count - 1))
+//        }
         return nil
     }
 }

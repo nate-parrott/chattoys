@@ -170,3 +170,11 @@ extension String {
     }
 }
 
+
+extension Prompt {
+    public mutating func appendConversationString(_ text: String, priority: Double? = nil) {
+        for parsed in LLMMessage.parseConversation(fromString: text) {
+            append(parsed.content, role: parsed.role, priority: priority)
+        }
+    }
+}

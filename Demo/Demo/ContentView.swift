@@ -19,11 +19,11 @@ struct ContentView: View {
                 }
                 .tag(Screen.chat)
 
-            Scraper()
-                .tabItem {
-                    Label("Scraping", systemImage: "text.magnifyingglass")
-                }
-                .tag(Screen.scraping)
+//            Scraper()
+//                .tabItem {
+//                    Label("Scraping", systemImage: "text.magnifyingglass")
+//                }
+//                .tag(Screen.scraping)
                 
             SettingsView()
                 .tabItem {
