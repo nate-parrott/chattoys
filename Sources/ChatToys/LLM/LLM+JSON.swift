@@ -28,14 +28,19 @@ extension ChatLLM {
         }
     }
 
-    public func completeStreamingWithJSONObject<T: Codable>(promptWithJSONExplanation: [LLMMessage], type: T.Type) -> AsyncThrowingStream<T, Error> {
+    public func completeStreamingWithJSONObject<T: Codable>(promptWithJSONExplanation: [LLMMessage], type: T.Type, completeLinesOnly: Bool = false) -> AsyncThrowingStream<T, Error> {
         return AsyncThrowingStream { cont in
             Task {
                 do {
                     var lastText = ""
                     for try await partial in self.completeStreaming(prompt: promptWithJSONExplanation) {
                         lastText = partial.content.byExtractingOnlyCodeBlocks.removing(prefix: "json")
-                        if let json = try? JSONDecoder().decode(T.self, from: lastText.capJson.data(using: .utf8)!) {
+
+                        var textToParse = lastText
+                        if completeLinesOnly {
+                            textToParse = textToParse.dropLastLine
+                        }
+                        if let json = try? JSONDecoder().decode(T.self, from: textToParse.capJson.data(using: .utf8)!) {
                             cont.yield(json)
 //                            break
                         }

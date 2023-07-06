@@ -66,4 +66,12 @@ extension String {
             .filter { $0 != "" }
             .joined(separator: "\n")
     }
+
+    var dropLastLine: String {
+        var lines = split(separator: "\n")
+        if lines.count > 0 {
+            _ = lines.removeLast()
+        }
+        return lines.joined(separator: "\n")
+    }
 }
