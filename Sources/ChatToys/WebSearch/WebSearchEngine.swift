@@ -31,6 +31,20 @@ public extension WebSearchResult {
     }
 }
 
+extension WebSearchResult: CustomStringConvertible {
+    public var description: String {
+        let lines: [String] = [
+            " - [\(url.host ?? "?")]",
+            "   \(title)",
+            "   \(snippet?.truncateTail(maxLen: 80) ?? "[No snippet]")"
+        ]
+        return lines.joined(separator: "\n")
+//        print(" - [\(res.url.host ?? "??")]")
+//        print("   \(res.title)\n   \(res.snippet?.prefix(80) ?? "[No snippet]")")
+//        print("")
+    }
+}
+
 public protocol WebSearchEngine {
     func search(query: String) async throws -> [WebSearchResult]
 }

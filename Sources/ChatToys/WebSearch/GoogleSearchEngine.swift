@@ -45,10 +45,16 @@ public struct GoogleSearchEngine: WebSearchEngine {
          */
 
         var results = [WebSearchResult]()
-        for anchor in try main.select("a:has(h3)") {
+        // Exclude role=heading; this indicates an image section
+        // Exclude aria-hidden=true; this indicates the 'more results' cell
+        for anchor in try main.select("a:has(h3:not([role=heading], [aria-hidden=true]))") {
             if let result = try anchor.extractSearchResultFromAnchor(baseURL: baseURL) {
                 results.append(result)
             }
+        }
+        // Try fetching youtube results and insert at position 1
+        if let youtubeResults = try main.extractYouTubeResults() {
+            results.insert(contentsOf: youtubeResults, at: min(1, results.count))
         }
         return results
     }
@@ -60,13 +66,25 @@ public struct GoogleSearchEngine: WebSearchEngine {
 }
 
 private extension Element {
+    func extractYouTubeResults() throws -> [WebSearchResult]? {
+        var results = [WebSearchResult]()
+        // Search for elements with a href starting with https://www.youtube.com,
+        // which contain a div role=heading
+        let selector = "a[href^='https://www.youtube.com']:has(div[role=heading])"
+        for element in try select(selector).array() {
+            if let link = try? element.attr("href"),
+               let parsed = URL(string: link),
+               let title = try element.select("div[role=heading] span").first()?.text() {
+                results.append(WebSearchResult(url: parsed, title: title, snippet: nil))
+            }
+        }
+        return results
+    }
+
     func extractSearchResultFromAnchor(baseURL: URL) throws -> WebSearchResult? {
         // First, extract the URL
         guard let href = try? attr("href"),
               let parsed = URL(string: href, relativeTo: baseURL)
-//              let components = URLComponents(url: parsed, resolvingAgainstBaseURL: true),
-//              let q = components.queryItems?.first(where: { $0.name == "q" }),
-//              let url = URL(string: q.value ?? "", relativeTo: baseURL)
         else {
             return nil
         }
@@ -75,21 +93,24 @@ private extension Element {
             return nil
         }
 
-        let snippet: String? = {
-            guard let parent = self.parent()?.parent()?.parent(),
-                  let secondDiv = parent.children().filter({ $0.tagName() == "div" }).get(1),
-                  let text = secondDiv.innerTextByDeletingLinks.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
-            else { return nil }
-            return text
-    
+        let snippet: String? = { () -> String? in
+            guard let parent3 = self.parent()?.parent()?.parent() else { return nil }
+            // First, look for an element with `div[style='-webkit-line-clamp:2']`
+            if let div = try? parent3.select("div[style='-webkit-line-clamp:2']").first(),
+               let text = try? div.text().nilIfEmptyOrJustWhitespace {
+                return text
+            }
+
+            // If not, iterate backwards through child divs (except the first one) and look for one with a non-empty `<span>`
+            let divChildren = Array(parent3.children().filter { $0.tagName() == "div" }[1...])
+            for div in divChildren.reversed() {
+                if let span = try? div.select("span").first(), let text = try? span.text().nilIfEmptyOrJustWhitespace {
+                    return text
+                }
+            }
+            return nil
         }()
-//        // Finally, extract snippet:
-//              let text = secondDiv.innerTextByDeletingLinks.trimmingCharacters(in: .whitespacesAndNewlines)
-//            //   let snippetNode = secondDiv.firstDescendantWithInnerText,
-//            //   let text = try? snippetNode.text().trimmingCharacters(in: .whitespacesAndNewlines)
-//        else {
-//            return nil
-//        }
+
 
         return WebSearchResult(url: parsed, title: title, snippet: snippet)
     }

@@ -6,6 +6,7 @@
 //
 
 import SwiftUI
+import ChatToys
 
 @main
 struct DemoApp: App {
