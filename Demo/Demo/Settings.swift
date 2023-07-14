@@ -12,7 +12,7 @@ enum LLM: String, Equatable, Codable, CaseIterable {
         let orgId = UserDefaults.standard.string(forKey: "orgId") ?? ""
         switch llm {
         case .chatGPT:
-            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt35_turbo, printToConsole: true))
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt35_turbo, printToConsole: true, printCost: false))
         case .gpt4:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
         case .claude:

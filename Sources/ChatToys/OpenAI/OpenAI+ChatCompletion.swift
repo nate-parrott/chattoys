@@ -15,12 +15,16 @@ public struct ChatGPT {
         public var stop: [String]
         public var printToConsole: Bool
 
-        public init(temp: Double = 0.2, maxTokens: Int = 1000, model: Model = .gpt35_turbo, stop: [String] = [], printToConsole: Bool = false) {
+        // `printCost` disables streaming and prints cost to the console
+        public var printCost: Bool
+
+        public init(temp: Double = 0.2, maxTokens: Int = 1000, model: Model = .gpt35_turbo, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false) {
             self.temperature = temp
             self.max_tokens = maxTokens
             self.model = model
             self.stop = stop
             self.printToConsole = printToConsole
+            self.printCost = printCost
         }
     }
 
@@ -60,6 +64,7 @@ extension ChatGPT: ChatLLM {
             }
             var delta: MessageDelta
         }
+
         var choices: [Choice]
     }
 
@@ -73,8 +78,22 @@ extension ChatGPT: ChatLLM {
     }
 
     public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
-     let cr = ChatCompletionRequest(messages: prompt.map { $0.asChatGPT }, model: options.model.rawValue, temperature: options.temperature, stop: options.stop.nilIfEmptyArray)
-       let request = createChatRequest(completionRequest: cr)
+        // `printCost` requires not streaming the response.
+        if options.printCost {
+            return AsyncThrowingStream { cont in
+                Task {
+                    do {
+                        let result = try await complete(prompt: prompt)
+                        cont.yield(result)
+                        cont.finish()
+                    } catch {
+                        cont.finish(throwing: error)
+                    }
+                }
+            }
+        }
+
+        let request = createChatRequest(prompt: prompt, stream: true)
 
         if options.printToConsole {
             print("OpenAI request:\n\((prompt.asConversationString))")
@@ -110,6 +129,7 @@ extension ChatGPT: ChatLLM {
                        message.content += delta.content ?? ""
                        continuation.yield(message.asLLMMessage)
                    }
+                   print("\(decoded)")
                } catch {
                    print("Chat completion error: \(error)")
                    continuation.yield(with: .failure(error))
@@ -126,7 +146,9 @@ extension ChatGPT: ChatLLM {
        return json.choices.first?.delta.content
    }
 
-   private func createChatRequest(completionRequest: ChatCompletionRequest) -> URLRequest {
+    private func createChatRequest(prompt: [LLMMessage], stream: Bool) -> URLRequest {
+        let cr = ChatCompletionRequest(messages: prompt.map { $0.asChatGPT }, model: options.model.rawValue, temperature: options.temperature, stream: stream, stop: options.stop.nilIfEmptyArray)
+
        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
        var request = URLRequest(url: url)
        request.httpMethod = "POST"
@@ -135,7 +157,7 @@ extension ChatGPT: ChatLLM {
        if let orgId = credentials.orgId {
            request.setValue(orgId, forHTTPHeaderField: "OpenAI-Organization")
        }
-       request.httpBody = try! JSONEncoder().encode(completionRequest)
+       request.httpBody = try! JSONEncoder().encode(cr)
        return request
    }
 
@@ -173,116 +195,65 @@ private extension ChatGPT.Message.Role {
     }
 }
 
-//import Foundation
-//
-//extension OpenAIAPI {
-//    public struct Message: Equatable, Codable, Hashable {
-//        public enum Role: String, Equatable, Codable, Hashable {
-//            case system
-//            case user
-//            case assistant
-//        }
+extension ChatGPT {
+    private struct NonStreamingResponse: Codable {
+        struct Choice: Codable {
+            var message: ChatGPT.Message
+        }
 
-//        public var role: Role
-//        public var content: String
+        struct Usage: Codable {
+            var completion_tokens: Int
+            var prompt_tokens: Int
+        }
 
-//        public init(role: Role, content: String) {
-//            self.role = role
-//            self.content = content
-//        }
-//    }
+        var choices: [Choice]
+        var usage: Usage?
+    }
 
-//    public struct ChatCompletionRequest: Codable {
-//        var messages: [Message]
-//        var model: String
-//        var max_tokens: Int = 1500
-//        var temperature: Double = 0.2
-//        var stream = false
-//        var stop: [String]?
+    func complete(prompt: [LLMMessage]) async throws -> LLMMessage {
+        let request = createChatRequest(prompt: prompt, stream: false)
+        let (data, _) = try await URLSession.shared.data(for: request)
+        let response = try JSONDecoder().decode(NonStreamingResponse.self, from: data)
 
-//        public init(messages: [Message], model: String = "gpt-3.5-turbo", max_tokens: Int = 1500, temperature: Double = 0.2, stop: [String]? = nil) {
-//            self.messages = messages
-//            self.model = model
-//            self.max_tokens = max_tokens
-//            self.temperature = temperature
-//            self.stop = stop
-//        }
-//    }
-//
-//    // MARK: - Plain completion
-//
-//    struct ChatCompletionResponse: Codable {
-//        struct Choice: Codable {
-//            var message: Message
-//        }
-//        var choices: [Choice]
-//    }
-//
-//    public func completeChat(_ completionRequest: ChatCompletionRequest) async throws -> String {
-//        let request = try createChatRequest(completionRequest: completionRequest)
-//        let (data, response) = try await URLSession.shared.data(for: request)
-//        guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-//            throw Errors.invalidResponse(String(data: data, encoding: .utf8) ?? "<failed to decode response>")
-//        }
-//        let completionResponse = try JSONDecoder().decode(ChatCompletionResponse.self, from: data)
-//        guard completionResponse.choices.count > 0 else {
-//            throw Errors.noChoices
-//        }
-//        return completionResponse.choices[0].message.content
-//    }
-//
-//    // MARK: - Streaming completion
-//
-//    public func completeChatStreaming(_ completionRequest: ChatCompletionRequest) throws -> AsyncStream<Message> {
-//        var cr = completionRequest
-//        cr.stream = true
-//        let request = try createChatRequest(completionRequest: cr)
-//
-//        return AsyncStream { continuation in
-//            let src = EventSource(urlRequest: request)
-//
-//            var message = Message(role: .assistant, content: "")
-//
-//            src.onComplete { statusCode, reconnect, error in
-//                continuation.finish()
-//            }
-//            src.onMessage { id, event, data in
-//                guard let data, data != "[DONE]" else { return }
-//                do {
-//                    let decoded = try JSONDecoder().decode(ChatCompletionStreamingResponse.self, from: Data(data.utf8))
-//                    if let delta = decoded.choices.first?.delta {
-//                        message.role = delta.role ?? message.role
-//                        message.content += delta.content ?? ""
-//                        continuation.yield(message)
-//                    }
-//                } catch {
-//                    print("Chat completion error: \(error)")
-//                }
-//            }
-//            src.connect()
-//        }
-//    }
-//
-//    public func completeChatStreamingWithObservableObject(_ completionRequest: ChatCompletionRequest) throws -> StreamingCompletion {
-//        let completion = StreamingCompletion()
-//        Task {
-//            do {
-//                for await message in try self.completeChatStreaming(completionRequest) {
-//                    DispatchQueue.main.async {
-//                        completion.text = message.content
-//                    }
-//                }
-//                DispatchQueue.main.async {
-//                    completion.status = .complete
-//                }
-//            } catch {
-//                DispatchQueue.main.async {
-//                    completion.status = .error
-//                }
-//            }
-//        }
-//        return completion
-//    }
-//
-//
-//}
+        guard let result = response.choices.first?.message else {
+            throw LLMError.unknown
+        }
+
+        if options.printCost, let usage = response.usage {
+            let cost = options.model.cost
+            let promptCents = Double(usage.prompt_tokens) / 1000 * cost.centsPer1kPromptToken
+            let completionCents = Double(usage.completion_tokens) / 1000 * cost.centsPer1kCompletionToken
+            let totalCents = promptCents + completionCents
+            func formatCents(_ cents: Double) -> String {
+                let formatter = NumberFormatter()
+                formatter.numberStyle = .currency
+                formatter.currencyCode = "USD"
+                formatter.currencySymbol = "$"
+                formatter.maximumFractionDigits = 2
+                return formatter.string(from: NSNumber(value: cents / 100))!
+            }
+
+            print(
+            """
+            1000 copies of this \(options.model) request would cost, as of July 14, 2023:
+               \(formatCents(promptCents * 1000)): \(usage.prompt_tokens) prompt tokens per request
+             + \(formatCents(completionCents * 1000)): \(usage.completion_tokens) completion tokens per request
+            --------------------
+             = \(formatCents(totalCents * 1000)): total
+            """)
+        }
+
+        return result.asLLMMessage
+    }
+}
+
+extension ChatGPT.Model {
+    var cost: (centsPer1kPromptToken: Double, centsPer1kCompletionToken: Double) {
+        switch self {
+        case .gpt35_turbo: return (0.15, 0.2)
+        case .gpt35_turbo_16k: return (0.3, 0.4)
+        case .gpt4: return (3, 6)
+        case .gpt4_32k: return (6, 12)
+        }
+    }
+}
