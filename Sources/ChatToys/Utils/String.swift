@@ -13,7 +13,7 @@ extension String {
         trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    func truncateTail(maxLen: Int) -> String {
+    public func truncateTail(maxLen: Int) -> String {
         if count + 3 > maxLen {
             if maxLen <= 3 {
                 return ""

@@ -129,7 +129,6 @@ extension ChatGPT: ChatLLM {
                        message.content += delta.content ?? ""
                        continuation.yield(message.asLLMMessage)
                    }
-                   print("\(decoded)")
                } catch {
                    print("Chat completion error: \(error)")
                    continuation.yield(with: .failure(error))

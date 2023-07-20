@@ -15,6 +15,9 @@ public struct Claude {
         case claudeV1_100k = "claude-v1-100k"
         case claudeInstantV1 = "claude-instant-v1"
         case claudeInstantV1_100k = "claude-instant-v1-100k"
+        // Latest:
+        case claudeInstant1 = "claude-instant-1"
+        case claude2 = "claude-2"
     }
 
     public struct Options {
@@ -59,7 +62,7 @@ extension Claude: ChatLLM {
     public var tokenLimit: Int {
         switch options.model {
         case .claudeV1, .claudeInstantV1: return 8000 // cant find documented limit???
-        case .claudeInstantV1_100k, .claudeV1_100k: return 100_000
+        case .claudeInstantV1_100k, .claudeV1_100k, .claudeInstant1, .claude2: return 100_000
         }
     }
 
