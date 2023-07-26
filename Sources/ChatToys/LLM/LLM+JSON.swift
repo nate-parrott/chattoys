@@ -1,5 +1,9 @@
 import Foundation
 
+enum JSONLLMError: Error {
+    case failedToExtractJSON
+}
+
 extension ChatLLM {
     public func completeStreamingLineByLine(prompt: [LLMMessage]) -> AsyncThrowingStream<String, Error> {
         AsyncThrowingStream { cont in
@@ -28,12 +32,12 @@ extension ChatLLM {
         }
     }
 
-    public func completeStreamingWithJSONObject<T: Codable>(promptWithJSONExplanation: [LLMMessage], type: T.Type, completeLinesOnly: Bool = false) -> AsyncThrowingStream<T, Error> {
+    public func completeStreamingWithJSONObject<T: Codable>(prompt: [LLMMessage], type: T.Type, completeLinesOnly: Bool = false) -> AsyncThrowingStream<T, Error> {
         return AsyncThrowingStream { cont in
             Task {
                 do {
                     var lastText = ""
-                    for try await partial in self.completeStreaming(prompt: promptWithJSONExplanation) {
+                    for try await partial in self.completeStreaming(prompt: prompt) {
                         lastText = partial.content.byExtractingOnlyCodeBlocks.removing(prefix: "json")
 
                         var textToParse = lastText
@@ -57,6 +61,7 @@ extension ChatLLM {
     }
 
     /// Attempts to extract partial JSON output and periodically deliver it
+    /// Example will be added to the prompt
     public func completeStreamingWithJSONObject<T: Codable>(prompt: [LLMMessage], example: T) -> AsyncThrowingStream<T, Error> {
         let jsonPrompt = """
 Output your answer as a valid JSON object, in this exact format:
@@ -64,14 +69,20 @@ Output your answer as a valid JSON object, in this exact format:
 Final output, ONLY the valid JSON in the structure above:
 """
         let fullPrompt: [LLMMessage] = prompt + [.init(role: .system, content: jsonPrompt)]
-        return completeStreamingWithJSONObject(promptWithJSONExplanation: fullPrompt, type: T.self)
+        return completeStreamingWithJSONObject(prompt: fullPrompt, type: T.self)
     }
+}
 
-    public func completeJSONObject<T: Codable>(promptWithJSONExplanation: [LLMMessage], type: T.Type) async throws -> T? {
+// MARK: - Non-streaming convenience functions
+extension ChatLLM {
+    public func completeJSONObject<T: Codable>(prompt: [LLMMessage], type: T.Type) async throws -> T {
         var last: T? = nil
-        for try await json in completeStreamingWithJSONObject(promptWithJSONExplanation: promptWithJSONExplanation, type: type) {
+        for try await json in completeStreamingWithJSONObject(prompt: prompt, type: type) {
             last = json
         }
-        return last
+        guard let final = last else {
+            throw JSONLLMError.failedToExtractJSON
+        }
+        return final
     }
 }

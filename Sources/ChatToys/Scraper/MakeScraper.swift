@@ -55,7 +55,7 @@ Output only two things:
 2. Then, write an extraction rule within a ```code block```.
 """, role: .user)
 
-        guard let json = try await completeJSONObject(promptWithJSONExplanation: prompt.packedPrompt(tokenCount: tokenLimitWithWiggleRoom), type: AnyScraperInstructions.self) else {
+        guard let json = try? await completeJSONObject(prompt: prompt.packedPrompt(tokenCount: tokenLimitWithWiggleRoom), type: AnyScraperInstructions.self) else {
             throw ScraperError.failedToGenerateRule
         }
         var instructions = ScraperInstructions<T>(base: json)
@@ -76,7 +76,7 @@ OK, here's the result:
 Do you want to refine your answer?
 Output only the refined extraction rule (or the same one, if it was good beforee) below, in a ```code block```:
 """, role: .user)
-            if let result = try await completeJSONObject(promptWithJSONExplanation: prompt.packedPrompt(tokenCount: tokenLimitWithWiggleRoom), type: AnyScraperInstructions.self) {
+            if let result = try? await completeJSONObject(prompt: prompt.packedPrompt(tokenCount: tokenLimitWithWiggleRoom), type: AnyScraperInstructions.self) {
                 instructions = .init(base: result)
             } else {
                 break

@@ -39,7 +39,6 @@ public extension ChatLLM {
     }
 }
 
-
 public enum LLMError: Error {
     case tooManyTokens
     case http(Int)
