@@ -59,7 +59,25 @@ extension ChatLLM {
             }
         }
     }
+}
 
+// MARK: - Non-streaming convenience functions
+extension ChatLLM {
+    public func completeJSONObject<T: Codable>(prompt: [LLMMessage], type: T.Type) async throws -> T {
+        var last: T? = nil
+        for try await json in completeStreamingWithJSONObject(prompt: prompt, type: type) {
+            last = json
+        }
+        guard let final = last else {
+            throw JSONLLMError.failedToExtractJSON
+        }
+        return final
+    }
+}
+
+// MARK: - Convenience
+
+extension ChatLLM {
     /// Attempts to extract partial JSON output and periodically deliver it
     /// Example will be added to the prompt
     public func completeStreamingWithJSONObject<T: Codable>(prompt: [LLMMessage], example: T) -> AsyncThrowingStream<T, Error> {
@@ -71,14 +89,39 @@ Final output, ONLY the valid JSON in the structure above:
         let fullPrompt: [LLMMessage] = prompt + [.init(role: .system, content: jsonPrompt)]
         return completeStreamingWithJSONObject(prompt: fullPrompt, type: T.self)
     }
-}
 
-// MARK: - Non-streaming convenience functions
-extension ChatLLM {
-    public func completeJSONObject<T: Codable>(prompt: [LLMMessage], type: T.Type) async throws -> T {
-        var last: T? = nil
-        for try await json in completeStreamingWithJSONObject(prompt: prompt, type: type) {
-            last = json
+    // Task is something like "You are renaming tabs to be concise."
+    // Guidelines are things like "2-3 words", "English", "You are an expert translator"
+    public func streamJSON<Input: Codable, Output: Codable>(task: String, guidelines: [String], input: Input, examples: [(Input, Output)], completeLinesOnly: Bool = false) -> AsyncThrowingStream<Output, Error> {
+        var prompt = [LLMMessage]()
+
+        var p1Lines = [
+            "Task: \(task)",
+            "You will receive input as JSON, and must output a JSON code block of a particular schema."
+        ]
+        if guidelines.count > 0 {
+            p1Lines.append("Guidelines:")
+            p1Lines += guidelines.map { " - \($0)" }
+        }
+//        if examples.count > 0 {
+//            p1Lines.append(examples.count == 1 ? "Example:" : "Examples:")
+//        }
+        prompt.append(.init(role: .system, content: p1Lines.joined(separator: "\n")))
+
+        for example in examples {
+            prompt.append(.init(role: .user, content: "```\n\(example.0.jsonString)\n```"))
+            prompt.append(.init(role: .assistant, content: "```\n\(example.1.jsonString)\n```"))
+        }
+        prompt.append(.init(role: .user, content: "```\n\(input.jsonString)\n```"))
+        return completeStreamingWithJSONObject(prompt: prompt, type: Output.self, completeLinesOnly: completeLinesOnly)
+    }
+
+    // Task is something like "You are renaming tabs to be concise."
+    // Guidelines are things like "2-3 words", "English", "You are an expert translator"
+    public func json<Input: Codable, Output: Codable>(task: String, guidelines: [String], input: Input, examples: [(Input, Output)]) async throws -> Output {
+        var last: Output?
+        for try await x in streamJSON(task: task, guidelines: guidelines, input: input, examples: examples, completeLinesOnly: true) {
+            last = x
         }
         guard let final = last else {
             throw JSONLLMError.failedToExtractJSON
