@@ -102,7 +102,7 @@ private extension Element {
             }
 
             // If not, iterate backwards through child divs (except the first one) and look for one with a non-empty `<span>`
-            let divChildren = Array(parent3.children().filter { $0.tagName() == "div" }[1...])
+            let divChildren = Array(parent3.children().filter { $0.tagName() == "div" }.dropFirst())
             for div in divChildren.reversed() {
                 if let span = try? div.select("span").first(), let text = try? span.text().nilIfEmptyOrJustWhitespace {
                     return text

@@ -26,13 +26,15 @@ public struct Claude {
         public var stopSequences: [String]
         public var temperature: Double
         public var printToConsole: Bool
+        public var responsePrefix: String // Forces the model to use this as the beginning of the response. (This prefix _will_ be included in the output).
 
-        public init(model: Model = .claudeInstantV1, maxTokens: Int = 1000, stopSequences: [String] = [], temperature: Double = 0.5, printToConsole: Bool = false) {
+        public init(model: Model = .claudeInstantV1, maxTokens: Int = 1000, stopSequences: [String] = [], temperature: Double = 0.5, printToConsole: Bool = false, responsePrefix: String = "") {
             self.model = model
             self.maxTokens = maxTokens
             self.stopSequences = stopSequences
             self.temperature = temperature
             self.printToConsole = printToConsole
+            self.responsePrefix = responsePrefix
         }
     }
 
@@ -69,11 +71,11 @@ extension Claude: ChatLLM {
 
     public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
         let payload = Request(
-            prompt: prompt.asAnthropicPrompt,
-             model: options.model.rawValue, 
-             max_tokens_to_sample: options.maxTokens, 
-             stop_sequences: options.stopSequences.nilIfEmptyArray, 
-             temperature: options.temperature,
+            prompt: prompt.asAnthropicPrompt + options.responsePrefix,
+            model: options.model.rawValue,
+            max_tokens_to_sample: options.maxTokens,
+            stop_sequences: options.stopSequences.nilIfEmptyArray,
+            temperature: options.temperature,
             stream: true
         )
         if options.printToConsole {
@@ -86,10 +88,10 @@ extension Claude: ChatLLM {
            urlRequest.httpBody = try! JSONEncoder().encode(payload)
            urlRequest.setValue("application/json", forHTTPHeaderField: "Content-Type")
            urlRequest.setValue(credentials.apiKey, forHTTPHeaderField: "X-API-Key")
+           urlRequest.setValue("2023-06-01", forHTTPHeaderField: "anthropic-version")
 
-            let src = EventSource(urlRequest: urlRequest)
-
-            var message = LLMMessage(role: .assistant, content: "")
+           let src = EventSource(urlRequest: urlRequest)
+           var message = LLMMessage(role: .assistant, content: options.responsePrefix)
 
             src.onComplete { statusCode, reconnect, error in
                 if let statusCode, statusCode / 100 == 2 {
@@ -107,17 +109,17 @@ extension Claude: ChatLLM {
                     }
                 }
             }
-            src.onMessage { id, event, data in
-                guard let data, data != "[DONE]" else { return }
-                do {
-                    let decoded = try JSONDecoder().decode(Response.self, from: Data(data.utf8))
-                    message.content = decoded.completion
-                    continuation.yield(message)
-                } catch {
-                    print("Chat completion error: \(error)")
-                    continuation.yield(with: .failure(error))
-                }
-            }
+           src.addEventListener("completion") { id, event, data in
+               guard let data, data != "[DONE]" else { return }
+               do {
+                   let decoded = try JSONDecoder().decode(Response.self, from: Data(data.utf8))
+                   message.content += decoded.completion
+                   continuation.yield(message)
+               } catch {
+                   print("Chat completion error: \(error)")
+                   continuation.yield(with: .failure(error))
+               }
+           }
             src.connect()
        }
     }
