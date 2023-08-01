@@ -1,7 +1,7 @@
 import SwiftSoup
 
 extension String {
-    public func simplifyHTML(truncateTextNodes: Int?) -> String? {
+    public func simplifyHTML(truncateTextNodes: Int?, contentOnly: Bool = false) -> String? {
         // Use beautifulsoup to simplify html
         // Remove script and style tags.
         // Remove imagesrcset attr
@@ -29,6 +29,30 @@ extension String {
                             try el.text(text.prefix(truncateTextNodes) + "...")
                         }
                     }
+                }
+            }
+
+            try doc.select("[aria-hidden=true]").remove()
+
+            if contentOnly {
+                // Remove navigation
+                try doc.select("nav, [aria-role=navigation]").remove()
+                // Remove footer
+                try doc.select("footer").remove()
+                // Remove header
+                try doc.select("header").remove()
+                try doc.select("[aria-role=banner]").remove()
+                // Remove form
+                try doc.select("form").remove()
+                // Remove alerts
+                try doc.select("[arial-role=alert]").remove()
+                // Remove dialogs
+                try doc.select("[arial-role=dialog]").remove()
+
+                // If there's a single <article>, return it
+                let articles = try doc.select("article")
+                if articles.count == 1 {
+                    return try articles.first()?.outerHtml()
                 }
             }
             
