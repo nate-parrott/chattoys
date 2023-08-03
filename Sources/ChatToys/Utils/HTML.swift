@@ -1,77 +1,93 @@
 import SwiftSoup
 import Foundation
 
-extension String {
-    public func simplifyHTML(truncateTextNodes: Int?, contentOnly: Bool = false) -> String? {
-        // Use beautifulsoup to simplify html
-        // Remove script and style tags.
-        // Remove imagesrcset attr
-        // Shorten URLs
-        // Remove HTML comments
-        do {
-            let doc = try SwiftSoup.parse(self)
-            try doc.select("script, style, link, svg").remove()
-            try doc.select("[srcset]").removeAttr("srcset")
-            doc.outputSettings().prettyPrint(pretty: false).syntax(syntax: .html)
-            
-            // Truncute src attributes to 500 chars:
-            for el in try doc.select("[src]") {
-                if let src = try? el.attr("src") {
-                    if src.count > 500 {
-                        try el.attr("src", src.prefix(500) + "...")
+enum HTMLProcessorError: Error {
+    case noBody
+}
+
+public class HTMLProcessor {
+    let document: SwiftSoup.Document
+    public let title: String?
+    var body: Element
+
+    public init(html: String) throws {
+        self.document = try SwiftSoup.parse(html)
+        guard let body = document.body() else {
+            throw HTMLProcessorError.noBody
+        }
+        self.title = try? document.title()
+        self.body = body
+        self.document.outputSettings().prettyPrint(pretty: false).syntax(syntax: .html)
+    }
+
+    public func simplify(truncateTextNodes: Int?) throws {
+        // find <script type="application/ld+json"> and paste text at front of body in a <p>
+        for el in try document.select("script[type='application/ld+json']") {
+            if let text = try? el.html().nilIfEmpty {
+                try body.prepend("<p></p>").children().first()?.text(text)
+            }
+        }
+
+        try body.select("script, style, link, svg").remove()
+        try body.select("[srcset]").removeAttr("srcset")
+
+        // Truncute src attributes to 500 chars:
+        for el in try body.select("[src]") {
+            if let src = try? el.attr("src") {
+                if src.count > 500 {
+                    try el.attr("src", src.prefix(500) + "...")
+                }
+            }
+        }
+
+        if let truncateTextNodes {
+            for el in try body.select("*") {
+                if el.children().count == 0, let text = try? el.text() {
+                    if text.count > truncateTextNodes {
+                        try el.text(text.prefix(truncateTextNodes) + "...")
                     }
                 }
             }
+        }
 
-            if let truncateTextNodes {
-                for el in try doc.select("*") {
-                    if el.children().count == 0, let text = try? el.text() {
-                        if text.count > truncateTextNodes {
-                            try el.text(text.prefix(truncateTextNodes) + "...")
-                        }
-                    }
-                }
+        try body.select("[aria-hidden=true]").remove()
+    }
+
+    public func isolateContent() throws {
+        // Remove navigation
+        try body.select("nav, [aria-role=navigation]").remove()
+        // Remove footer
+        try body.select("footer").remove()
+        // Remove header
+        try body.select("header").remove()
+        try body.select("[aria-role=banner]").remove()
+        // Remove form
+        try body.select("form").remove()
+        try body.select("option").remove()
+        // Remove alerts
+        try body.select("[arial-role=alert]").remove()
+        // Remove dialogs
+        try body.select("[arial-role=dialog]").remove()
+
+        let contentSelectors = ["[itemprop=mainEntity]", "article", "#content"]
+        for selector in contentSelectors {
+            let matches = try body.select(selector)
+            if matches.count == 1 {
+                self.body = matches.first()!
+                return
             }
-
-            try doc.select("[aria-hidden=true]").remove()
-
-            if contentOnly {
-                // Remove navigation
-                try doc.select("nav, [aria-role=navigation]").remove()
-                // Remove footer
-                try doc.select("footer").remove()
-                // Remove header
-                try doc.select("header").remove()
-                try doc.select("[aria-role=banner]").remove()
-                // Remove form
-                try doc.select("form").remove()
-                // Remove alerts
-                try doc.select("[arial-role=alert]").remove()
-                // Remove dialogs
-                try doc.select("[arial-role=dialog]").remove()
-
-                let contentSelectors = ["[itemprop=mainEntity]", "article", "#content"]
-                for selector in contentSelectors {
-                    let matches = try doc.select(selector)
-                    if matches.count == 1 {
-                        return try matches.first()?.outerHtml()
-                    }
-                }
-            }
-            
-            return try doc.body()?.outerHtml()
-        } catch {
-            return nil
         }
     }
 
-    public func htmlToMarkdown(hideUrls: Bool = false) throws -> String {
-        // Parse doc
-        let doc = try SwiftSoup.parse(self)
+    public func bodyOuterHTML() throws -> String {
+        let html = try body.outerHtml()
+        return html
+    }
 
+    public func convertToMarkdown_doNotUseObjectAfter(hideUrls: Bool) throws -> String {
         // Use UUID as token, then sub it for a linebreak at the end
         let linebreak = UUID().uuidString
-        
+
         struct Rule {
             var prefix: String?
             var suffix: String?
@@ -92,32 +108,37 @@ extension String {
             "code": Rule(prefix: "``", suffix: "`"),
         ]
 
-        // Apply rules
-        for (tag, rule) in rules {
-            for el in try doc.select(tag) {
-                if let prefix = rule.prefix {
-                    try el.before(prefix)
-                }
-                if let suffix = rule.suffix {
-                    try el.after(suffix)
+        try timeExecution(printWithLabel: "Rules") {
+            // Apply rules
+            for (tag, rule) in rules {
+                for el in try body.select(tag) {
+                    if let prefix = rule.prefix {
+                        try el.before(prefix)
+                    }
+                    if let suffix = rule.suffix {
+                        try el.after(suffix)
+                    }
                 }
             }
         }
 
-        // Handle links
-        for el in try doc.select("a") {
-            if let text = try? el.text().nilIfEmpty {
-                if !hideUrls, let href = try? el.attr("href") {
-                    try el.text("[\(text)](\(href))")
-                } else {
-                    try el.text("[\(text)]")
+        try timeExecution(printWithLabel: "Links") {
+            // Handle links
+            for el in try body.select("a") {
+                if let text = try? el.text(trimAndNormaliseWhitespace: false).trimmed.nilIfEmpty {
+                    if !hideUrls, let href = try? el.attr("href") {
+                        try el.text("[\(text)](\(href))")
+                    } else {
+                        try el.text("[\(text)]")
+                    }
                 }
             }
         }
+
         // Handle images
-        for el in try doc.select("img") {
+        for el in try body.select("img") {
             // for inner text, use alt
-            if let alt = try? el.attr("alt") {
+            if let alt = try? el.attr("alt").trimmed {
                 if let url = try? el.attr("src").nilIfEmpty, !hideUrls {
                     try el.text("![\(alt)](\(url))")
                 } else {
@@ -127,18 +148,60 @@ extension String {
         }
 
         // TODO: Keep original indentation
-        for el in try doc.select("pre") {
+        for el in try body.select("pre") {
             if let text = try? el.text().nilIfEmpty {
                 let textWithLinebreaks = text.components(separatedBy: "\n").joined(separator: linebreak + "    ")
                 try el.text("\(linebreak)```\(linebreak)\(textWithLinebreaks)\(linebreak)```\(linebreak)")
             }
         }
 
-        let parts = try doc.text()
-            .components(separatedBy: linebreak)
-            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\n", with: " ") }
-            .compactMap { $0.nilIfEmpty }
+        let baseText = try timeExecution(printWithLabel: "baseText", {
+            try body.text(trimAndNormaliseWhitespace: false) // true)
+        })
+
+        let parts = timeExecution(printWithLabel: "Parts") {
+            baseText
+                .components(separatedBy: linebreak)
+                .map { $0.collapseWhitespace.trimmingCharacters(in: .whitespacesAndNewlines).replacingOccurrences(of: "\n", with: " ") }
+                .compactMap { $0.nilIfEmpty }
+        }
 
         return parts.joined(separator: "\n")
     }
+}
+
+extension String {
+    var collapseWhitespace: String {
+        components(separatedBy: .whitespacesAndNewlines).filter({ $0.count > 0 }).joined(separator: " ")
+    }
+
+    public func simplifyHTML(truncateTextNodes: Int?, contentOnly: Bool = false) -> String? {
+        do {
+            let proc = try HTMLProcessor(html: self)
+            try proc.simplify(truncateTextNodes: truncateTextNodes)
+            if contentOnly {
+                try proc.isolateContent()
+            }
+            return try proc.bodyOuterHTML()
+        } catch {
+            return nil
+        }
+    }
+}
+
+func timeExecution<T>(printWithLabel label: String?, _ block: () throws -> T) rethrows -> T {
+    let start = Date()
+    let result = try block()
+    if let label {
+        let end = Date()
+        let elapsed = end.timeIntervalSince(start)
+        let formatter = NumberFormatter()
+        formatter.minimumFractionDigits = 3
+        formatter.maximumFractionDigits = 3
+        formatter.minimumIntegerDigits = 1
+        formatter.roundingMode = .halfUp
+        let ms = formatter.string(from: NSNumber(value: elapsed * 1000))!
+        print("🏁 \(label): \(ms) ms")
+    }
+    return result
 }
