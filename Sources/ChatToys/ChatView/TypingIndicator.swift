@@ -10,10 +10,12 @@ struct TypingIndicator: View {
     }
 }
 
-struct AnimatedEllipses: View {
+public struct AnimatedEllipses: View {
+    public init() {}
+
     @State private var appeared = false
 
-    var body: some View {
+    public var body: some View {
         HStack(spacing: 3) {
             ForEach(0..<3) { i in
                 Circle()

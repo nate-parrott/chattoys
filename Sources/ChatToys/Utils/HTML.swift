@@ -9,9 +9,11 @@ public class HTMLProcessor {
     let document: SwiftSoup.Document
     public let title: String?
     var body: Element
+    let baseURL: URL?
 
-    public init(html: String) throws {
+    public init(html: String, baseURL: URL?) throws {
         self.document = try SwiftSoup.parse(html)
+        self.baseURL = baseURL
         guard let body = document.body() else {
             throw HTMLProcessorError.noBody
         }
@@ -51,6 +53,19 @@ public class HTMLProcessor {
         }
 
         try body.select("[aria-hidden=true]").remove()
+    }
+
+    public func moveContentToFront() throws {
+        let moveToEndSelectors = "nav, [aria-role=navigation], footer, header, [aria-role=banner], form, option, [arial-role=alert], [arial-role=dialog]"
+        for el in try body.select(moveToEndSelectors) {
+            try el.remove()
+            try body.insertChildren(body.childNodeSize(), [el])
+        }
+        let moveToFrontSelectors = "[itemprop=mainEntity], article, #content, .reviews-content"
+        for el in try body.select(moveToFrontSelectors) {
+            try el.remove()
+            try body.insertChildren(0, [el])
+        }
     }
 
     public func isolateContent() throws {
@@ -168,6 +183,69 @@ public class HTMLProcessor {
 
         return parts.joined(separator: "\n")
     }
+
+    // MARK: - URL Shortening
+
+    public var shortToLongURLs: [String: URL] = [:]
+    private var longToShortURLs: [URL: String] = [:]
+    private var shortURLCountsForDomains = [String: Int]()
+
+    public func shortenURLs() throws {
+        // For hrefs and img srcs, shorten URLs
+        for el in try body.select("a, img") {
+            if let href = try? el.attr("href").nilIfEmpty {
+                if let url = URL(string: href, relativeTo: baseURL) {
+                    try el.attr("href", shortenURL(url))
+                }
+            }
+            if let src = try? el.attr("src").nilIfEmpty {
+                if let url = URL(string: src, relativeTo: baseURL) {
+                    try el.attr("src", shortenURL(url))
+                }
+            }
+        }
+    }
+
+    private func shortenURL(_ url: URL) -> String {
+        if let short = longToShortURLs[url] {
+            return short
+        } else if var host = url.host {
+            host = host.withoutPrefix("www.")
+            let count = shortURLCountsForDomains[host, default: 0] + 1
+            let short = "\(host)/\(count)"
+            shortURLCountsForDomains[host] = count
+            longToShortURLs[url] = short
+            shortToLongURLs[short] = url
+            return short
+        } else {
+            return url.absoluteString
+        }
+    }
+
+    public func expand(url: String) -> URL? {
+        shortToLongURLs[url] ?? URL(string: url)
+    }
+
+    static public func expandShortUrls(markdown text: String, urlMapping: [String: URL]) -> String {
+        let pattern = #"(\b|\(|\[)([a-zA-Z0-9.-]+\.com/\d+)(\b|\)|\])"#
+        let regex = try! NSRegularExpression(pattern: pattern)
+        let matches = regex.matches(in: text, range: NSRange(text.startIndex..., in: text))
+
+        var mutableText = text
+
+        func expand(url: String) -> String? {
+            urlMapping[url]?.absoluteString
+        }
+
+        for match in matches.reversed() {
+            if let urlRange = Range(match.range(at: 2), in: text),
+               let expandedURL = expand(url: String(text[urlRange])) {
+                mutableText.replaceSubrange(urlRange, with: expandedURL)
+            }
+        }
+
+        return mutableText
+    }
 }
 
 extension String {
@@ -175,9 +253,9 @@ extension String {
         components(separatedBy: .whitespacesAndNewlines).filter({ $0.count > 0 }).joined(separator: " ")
     }
 
-    public func simplifyHTML(truncateTextNodes: Int?, contentOnly: Bool = false) -> String? {
+    public func simplifyHTML(baseURL: URL?, truncateTextNodes: Int?, contentOnly: Bool = false) -> String? {
         do {
-            let proc = try HTMLProcessor(html: self)
+            let proc = try HTMLProcessor(html: self, baseURL: baseURL)
             try proc.simplify(truncateTextNodes: truncateTextNodes)
             if contentOnly {
                 try proc.isolateContent()
@@ -186,6 +264,13 @@ extension String {
         } catch {
             return nil
         }
+    }
+
+    func withoutPrefix(_ prefix: String) -> String {
+        if hasPrefix(prefix) {
+            return String(dropFirst(prefix.count))
+        }
+        return self
     }
 }
 
@@ -205,3 +290,4 @@ func timeExecution<T>(printWithLabel label: String?, _ block: () throws -> T) re
     }
     return result
 }
+

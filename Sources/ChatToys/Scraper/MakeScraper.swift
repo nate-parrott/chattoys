@@ -18,7 +18,7 @@ extension ChatLLM {
             "\"\(name)\": \"...\""
         }.joined(separator: ", ")
 
-        let simplifiedHtml = htmlPage.simplifyHTML(truncateTextNodes: 200) ?? htmlPage
+        let simplifiedHtml = htmlPage.simplifyHTML(baseURL: nil, truncateTextNodes: 200) ?? htmlPage
         prompt.append("HTML page:\n\(simplifiedHtml)", role: .user, canTruncateToLength: 1000)
 
         prompt.append("""

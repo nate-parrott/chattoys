@@ -11,11 +11,6 @@ public struct AnthropicCredentials {
 
 public struct Claude {
     public enum Model: String, Equatable {
-        case claudeV1 = "claude-v1"
-        case claudeV1_100k = "claude-v1-100k"
-        case claudeInstantV1 = "claude-instant-v1"
-        case claudeInstantV1_100k = "claude-instant-v1-100k"
-        // Latest:
         case claudeInstant1 = "claude-instant-1"
         case claude2 = "claude-2"
     }
@@ -28,7 +23,7 @@ public struct Claude {
         public var printToConsole: Bool
         public var responsePrefix: String // Forces the model to use this as the beginning of the response. (This prefix _will_ be included in the output).
 
-        public init(model: Model = .claudeInstantV1, maxTokens: Int = 1000, stopSequences: [String] = [], temperature: Double = 0.5, printToConsole: Bool = false, responsePrefix: String = "") {
+        public init(model: Model = .claudeInstant1, maxTokens: Int = 1000, stopSequences: [String] = [], temperature: Double = 0.5, printToConsole: Bool = false, responsePrefix: String = "") {
             self.model = model
             self.maxTokens = maxTokens
             self.stopSequences = stopSequences
@@ -63,8 +58,7 @@ extension Claude: ChatLLM {
 
     public var tokenLimit: Int {
         switch options.model {
-        case .claudeV1, .claudeInstantV1: return 8000 // cant find documented limit???
-        case .claudeInstantV1_100k, .claudeV1_100k, .claudeInstant1, .claude2: return 100_000
+        case .claudeInstant1, .claude2: return 100_000
         }
     }
 
