@@ -11,6 +11,12 @@ a simple library for playing with LLMs in Swift
 - A `Prompt`-packer for dealing with situations where you have more data than fits in the context window. Declare priorities for different messages in the prompt, then drop or truncate lower-priority messages to fit within the token limit.
 - A simple drop-in SwiftUI chat view for iOS and macOS
 
+### Installation
+
+Add this repo as a Swift package:
+
+`https://github.com/nate-parrott/chattoys`
+
 ### Usage
 
 See [`Demo/Chat.swift`](https://github.com/nate-parrott/chattoys/blob/main/Demo/Demo/Chat.swift)
