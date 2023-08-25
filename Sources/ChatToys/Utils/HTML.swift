@@ -155,11 +155,12 @@ public class HTMLProcessor {
             // for inner text, use alt
             if let alt = try? el.attr("alt").trimmed {
                 if let url = try? el.attr("src").nilIfEmpty, !hideUrls {
-                    try el.text("![\(alt)](\(url))")
+                    try el.prependText("![\(alt)](\(url))")
                 } else {
-                    try el.text("![\(alt)]")
+                    try el.prependText("![\(alt)]")
                 }
             }
+            try el.remove()
         }
 
         // TODO: Keep original indentation
