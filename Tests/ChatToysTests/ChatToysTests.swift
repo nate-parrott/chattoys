@@ -75,9 +75,21 @@ final class ChatToysTests: XCTestCase {
         XCTAssertEqual(x, "o1")
         let x2 = try await store.embeddingSearch(query: "I hate apples")[0].id
         XCTAssertEqual(x2, "a2")
-
     }
+    func testVectorStoreStressTest() async throws {
+        struct Info: Equatable, Codable {
+            var value: String
+        }
+        let store = try VectorStore<Info>(url: nil, embedder: HashEmbedder())
+        try await store.insert(records: [.init(id: "hi", group: nil, date: Date(), text: "hello world", data: .init(value: "x"))])
 
+        for i in 0..<1045 {
+            try await store.insert(records: [.init(id: "i-\(i)", group: "junk", date: Date(), text: "w", data: .init(value: "x"))])
+        }
+
+        let x = try await store.embeddingSearch(query: "hello world")[0].id
+        XCTAssertEqual(x, "hi")
+    }
 }
 
 struct HashEmbedder: Embedder {
