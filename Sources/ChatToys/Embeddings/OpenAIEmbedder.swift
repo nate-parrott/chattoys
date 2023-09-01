@@ -4,10 +4,22 @@ public struct OpenAIEmbedder: Embedder {
     public struct Options {
         public var printCost: Bool
         public var truncateToFitTokenLimit: Bool
+        public var model: Model
 
-        public init(printCost: Bool = false, truncateToFitTokenLimit: Bool = false) {
+        public enum Model: String {
+            case textEmbeddingAda002 = "text-embedding-ada-002"
+
+            var dimensions: Int {
+                switch self {
+                case .textEmbeddingAda002: return 1536
+                }
+            }
+        }
+
+        public init(printCost: Bool = false, truncateToFitTokenLimit: Bool = false, model: Model = .textEmbeddingAda002) {
             self.printCost = printCost
             self.truncateToFitTokenLimit = truncateToFitTokenLimit
+            self.model = model
         }
     }
 
@@ -35,7 +47,7 @@ public struct OpenAIEmbedder: Embedder {
         request.httpMethod = "POST"
         request.setValue("Bearer \(credentials.apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body = Request(input: documents)
+        let body = Request(model: options.model.rawValue, input: documents)
         request.httpBody = try JSONEncoder().encode(body)
         let (data, _) = try await URLSession.shared.data(for: request)
         let response = try JSONDecoder().decode(Response.self, from: data)
@@ -64,10 +76,14 @@ public struct OpenAIEmbedder: Embedder {
         return response.data.map { Embedding(vectors: $0.embedding, provider: "openai-\(body.model)") }
     }
 
+    public var dimensions: Int {
+        options.model.dimensions
+    }
+
     public var tokenLimit: Int { 8191 }
 
     private struct Request: Codable {
-        var model = "text-embedding-ada-002"
+        var model: String
         var input: [String]
     }
 
@@ -83,25 +99,5 @@ public struct OpenAIEmbedder: Embedder {
 
         var data: [Data]
         var usage: Usage
-//        {
-//          "object": "list",
-//          "data": [
-//            {
-//              "object": "embedding",
-//              "embedding": [
-//                0.0023064255,
-//                -0.009327292,
-//                .... (1536 floats total for ada-002)
-//                -0.0028842222,
-//              ],
-//              "index": 0
-//            }
-//          ],
-//          "model": "text-embedding-ada-002",
-//          "usage": {
-//            "prompt_tokens": 8,
-//            "total_tokens": 8
-//          }
-//        }
     }
 }

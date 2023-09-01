@@ -39,11 +39,16 @@ final class ChatToysTests: XCTestCase {
         XCTAssertEqual(items[1], .init(title: "Item 2", desc: "A less cool item", link: "https://bing.com"))
     }
 
-    func testVectorStore() async throws {
+    private var testEmbedder: some Embedder {
+        // TODO
+        OpenAIEmbedder(credentials: .init(apiKey: ""), options: .init())
+    }
+
+    func testVectorStoreTextSearch() async throws {
         struct Info: Equatable, Codable {
             var value: String
         }
-        let store = try VectorStore<Info>(url: nil)
+        let store = try VectorStore<Info>(url: nil, embedder: HashEmbedder())
         let docs: [String: String] = [
             "a1": "I like apples",
             "o1": "I like oranges",
@@ -53,7 +58,7 @@ final class ChatToysTests: XCTestCase {
             "a2": "I hate apples",
         ]
         let records = docs.map { (id, text) in
-            VectorStoreRecord<Info>(id: id, date: Date(), text: text, data: .init(value: id))
+            VectorStoreRecord<Info>(id: id, group: "my group", date: Date(), text: text, data: .init(value: id))
         }
         try await store.insert(records: Array(records))
         let record = try await store.record(forId: "a1")
@@ -63,6 +68,23 @@ final class ChatToysTests: XCTestCase {
         let res = try await store.fullTextSearch(query: "apples")
         XCTAssertEqual(res.count, 4)
         let res2 = try await store.fullTextSearch(query: "apples and oranges")
+
         XCTAssertEqual(res2[0].id, "ao1") // the one that mentions apples AND oranges should rank first
+        // Test embedding search. We're using a fake embedder that returns hashes so we can only test on EXACT matches
+        let x = try await store.embeddingSearch(query: "I like oranges")[0].id
+        XCTAssertEqual(x, "o1")
     }
+
+}
+
+struct HashEmbedder: Embedder {
+    func embed(documents: [String]) async throws -> [Embedding] {
+        return documents.map { doc in
+            let hash = doc.hashValue
+            var rand = SeededGenerator(string: "\(hash)")
+            return .init(vectors: (0..<32).map { _ in Double(rand.nextRandFloat1_Neg1()) }, provider: "test:hashEmbedder")
+        }
+    }
+    var tokenLimit: Int { 4096 } // aka context size
+    var dimensions: Int { 32 }
 }

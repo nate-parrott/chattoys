@@ -48,25 +48,3 @@ private func dotProduct(a: [Double], b: [Double]) -> Double {
     }
     return x
 }
-
-//private func cosineSim(A: [Double], B: [Double]) -> Double {
-//    return dot(A: A, B: B) / (magnitude(A: A) * magnitude(A: B))
-//}
-//
-///** Dot Product **/
-//private func dot(A: [Double], B: [Double]) -> Double {
-//    var x: Double = 0
-//    for i in 0...A.count-1 {
-//        x += A[i] * B[i]
-//    }
-//    return x
-//}
-//
-///** Vector Magnitude **/
-//private func magnitude(A: [Double]) -> Double {
-//    var x: Double = 0
-//    for elt in A {
-//        x += elt * elt
-//    }
-//    return sqrt(x)
-//}

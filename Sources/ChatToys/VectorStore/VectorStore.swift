@@ -1,14 +1,26 @@
 import Foundation
 import GRDB
+import USearch
+
+#if os(macOS)
+import AppKit
+#elseif os(iOS)
+import UIKit
+#endif
+
 
 public struct VectorStoreRecord<RecordData: Equatable & Codable>: Equatable, Codable, FetchableRecord, PersistableRecord {
     public var id: String
+    public var group: String
     public var date: Date
     public var text: String
     public var data: RecordData
+    fileprivate var vectorId: USearchKey?
 
-    public init(id: String, date: Date, text: String, data: RecordData) {
+    // `text` should fit an OpenAI embedding model
+    public init(id: String, group: String?, date: Date, text: String, data: RecordData) {
         self.id = id
+        self.group = group ?? ""
         self.date = date
         self.text = text
         self.data = data
@@ -24,13 +36,33 @@ enum VectorStoreError: Error {
 public class VectorStore<RecordData: Codable & Equatable> {
     public typealias Record = VectorStoreRecord<RecordData>
 
-    // We'll store our records in a sqlite full-text database, and later, a vector store
-    // TODO: Add vector store
+    let vectorStore: USearchIndex
+    let url: URL?
+    private var vectorStoreURL: URL? {
+        url?.appendingPathComponent("vectorstore")
+    }
+
+    private var metadataURL: URL? {
+        url?.appendingPathComponent("metadata.json")
+    }
 
     private let dbQueue: DatabaseQueue
+    private let embedder: any Embedder
+    private var notifTokens = [NSObjectProtocol]()
+    private let queue = DispatchQueue(label: "VectorStore", qos: .default)
+
+    struct Metadata: Equatable, Codable {
+        var nextVectorStoreId: USearchKey = 1
+    }
+
+    // Only access these on `self.queue`:
+    private var metadata = Metadata()
 
     // URL points to a directory in which we'll write two files: a sqlite database and a vector store
-    public init(url: URL?) throws {
+    public init(url: URL?, embedder: any Embedder) throws {
+        self.url = url
+        self.embedder = embedder
+
         // Ensure dir is created for URL
         if let url {
             if !FileManager.default.fileExists(atPath: url.path) {
@@ -48,9 +80,14 @@ public class VectorStore<RecordData: Codable & Equatable> {
                 // primary key is string id
                 t.column("id", .text).primaryKey()
                 t.column("date", .datetime)
+                t.column("group", .text)
                 t.column("text", .text)
                 t.column("data", .blob)
+                t.column("vectorId", .integer)
             }
+            // Index on group, and vectorStoreId:
+            try db.create(index: "record_group", on: "record", columns: ["group"])
+            try db.create(index: "record_vectorStoreId", on: "record", columns: ["vectorId"])
 
              // A full-text table synchronized with the regular table
              try db.create(virtualTable: "record_ft", using: FTS5()) { t in // or FTS4()
@@ -58,14 +95,82 @@ public class VectorStore<RecordData: Codable & Equatable> {
                  t.column("text")
              }
         }
+
+        // Setup vector store:
+        self.vectorStore = USearchIndex.make(metric: .cos, dimensions: UInt32(embedder.dimensions), connectivity: 16, quantization: .F16)
+        if let path = vectorStoreURL?.path {
+            vectorStore.load(path: path)
+        }
+
+        // Setup metadata:
+        if let path = metadataURL?.path {
+            if let data = try? Data(contentsOf: URL(fileURLWithPath: path)) {
+                if let metadata = try? JSONDecoder().decode(Metadata.self, from: data) {
+                    self.metadata = metadata
+                }
+            }
+        }
+
+        // Observe app termination to save vector store
+        if let notif = NotificationCenter.applicationWillTerminateNotification {
+            notifTokens.append(NotificationCenter.default.addObserver(forName: notif, object: nil, queue: nil) { [weak self] _ in
+                self?.save(sync: true)
+            })
+        }
+    }
+
+    // MARK: - API
+
+    public func save(sync: Bool) {
+        func actuallySave() {
+            if let path = vectorStoreURL?.path {
+                vectorStore.save(path: path)
+            }
+            if let path = metadataURL?.path {
+                let data = try? JSONEncoder().encode(metadata)
+                try? data?.write(to: URL(fileURLWithPath: path))
+            }
+        }
+        if sync {
+            queue.sync { actuallySave() }
+        } else {
+            queue.async { actuallySave() }
+        }
     }
 
     public func insert(records: [Record]) async throws {
+        // TODO: Check to see if this data matches existing data before embedding
+
+        let embeddings = try await embedder.embed(documents: records.map { $0.text })
+        let vectorStoreIds = await assignVectorStoreIds(count: embeddings.count)
+
         try await dbQueue.write { db in
+            // Remove existing records with IDs
             for record in records {
-                try record.insert(db)
+                try Record.deleteOne(db, key: record.id)
+            }
+
+            for (i, record) in records.enumerated() {
+                var r2 = record
+                r2.vectorId = vectorStoreIds[i]
+                try r2.insert(db)
             }
         }
+
+        await queue.performAsync {
+            for (i, embedding) in embeddings.enumerated() {
+                self.vectorStore.reserve(UInt32(self.vectorStore.count) + UInt32(embeddings.count))
+                self.vectorStore.add(key: vectorStoreIds[i], vector: embedding.vectors)
+            }
+        }
+    }
+
+    public func deleteRecords(ids: [String]) async {
+        // TODO
+    }
+
+    public func deleteRecords(groups: [String]) async {
+        // TODO
     }
 
     public func record(forId id: String) async throws -> Record? {
@@ -91,8 +196,66 @@ public class VectorStore<RecordData: Codable & Equatable> {
         }
     }
 
-    public func embeddingSearch(query: String) async throws -> [Record] {
-        // TODO
-        return []
+    public func embeddingSearch(query: String, limit: Int = 10) async throws -> [Record] {
+        let embedding = try await embedder.embed(documents: [query])[0]
+        let (vectorIds, _) = await queue.performAsync { self.vectorStore.search(vector: embedding.vectors, count: limit) }
+        return try await dbQueue.read { db in
+            let matches = vectorIds.compactMap { vectorId in
+                // Use sql to find the record matching vectorId
+                try? Record.fetchOne(db, sql: "SELECT * FROM record WHERE vectorId = ? LIMIT 1", arguments: [vectorId])
+            }
+            return matches
+        }
+    }
+
+    // MARK: - Internal
+    func assignVectorStoreIds(count: Int) async -> [USearchKey] {
+        await queue.performAsync {
+            let nextId = self.metadata.nextVectorStoreId
+            let newIds = (0..<count).map { nextId + USearchKey($0) }
+            self.metadata.nextVectorStoreId += USearchKey(count)
+            return newIds
+        }
+    }
+}
+
+public extension String {
+    func chunkForEmbedding() -> [String] {
+        let maxChunkLength = 2048 * 3 // 2048 tokens, roughly
+        var chunks = [[String]]() // groups of lines
+        var currentChunk = [String]()
+        var currentChunkLength = 0
+
+        func appendCurrentChunk() {
+            if currentChunk.count > 0 {
+                chunks.append(currentChunk)
+                currentChunk = []
+                currentChunkLength = 0
+            }
+        }
+
+        for line in self.split(separator: "\n") {
+            if line.count + currentChunkLength > maxChunkLength {
+                appendCurrentChunk()
+            }
+            // Do not allow single lines to exceed chunk length
+            currentChunk.append(String(line).truncateTail(maxLen: maxChunkLength))
+            currentChunkLength += line.count
+        }
+        appendCurrentChunk()
+
+        return chunks.map { $0.joined(separator: "\n") }
+    }
+}
+
+extension NotificationCenter {
+    static var applicationWillTerminateNotification: Notification.Name? {
+        #if os(macOS)
+        return NSApplication.willTerminateNotification
+        #elseif os(iOS)
+        return UIApplication.willTerminateNotification
+        #else
+        return nil
+        #endif
     }
 }

@@ -11,8 +11,13 @@ public class HTMLProcessor {
     var body: Element
     let baseURL: URL?
 
-    public init(html: String, baseURL: URL?) throws {
-        self.document = try SwiftSoup.parse(html)
+    public convenience init(html: String, baseURL: URL?) throws {
+        let parsed = try SwiftSoup.parse(html)
+        try self.init(soup: parsed, baseURL: baseURL)
+    }
+
+    public init(soup: SwiftSoup.Document, baseURL: URL?) throws {
+        self.document = soup
         self.baseURL = baseURL
         guard let body = document.body() else {
             throw HTMLProcessorError.noBody
