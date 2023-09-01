@@ -57,6 +57,7 @@ public class VectorStore<RecordData: Codable & Equatable> {
 
     // Only access these on `self.queue`:
     private var metadata = Metadata()
+    private var reservedUpToSize: UInt32 = 0
 
     // URL points to a directory in which we'll write two files: a sqlite database and a vector store
     public init(url: URL?, embedder: any Embedder) throws {
@@ -100,6 +101,7 @@ public class VectorStore<RecordData: Codable & Equatable> {
         self.vectorStore = USearchIndex.make(metric: .cos, dimensions: UInt32(embedder.dimensions), connectivity: 16, quantization: .F16)
         if let path = vectorStoreURL?.path {
             vectorStore.load(path: path)
+            self.reservedUpToSize = UInt32(vectorStore.count)
         }
 
         // Setup metadata:
@@ -159,7 +161,12 @@ public class VectorStore<RecordData: Codable & Equatable> {
 
         await queue.performAsync {
             for (i, embedding) in embeddings.enumerated() {
-                self.vectorStore.reserve(UInt32(self.vectorStore.count) + UInt32(embeddings.count))
+                let minSize = UInt32(self.vectorStore.count) + UInt32(embeddings.count)
+                if minSize > self.reservedUpToSize {
+                    let nextReserveAmt = UInt32(self.vectorStore.count) + UInt32(max(64, floor(Float(self.vectorStore.count) * 0.3)))
+                    self.vectorStore.reserve(nextReserveAmt)
+                    self.reservedUpToSize = nextReserveAmt
+                }
                 self.vectorStore.add(key: vectorStoreIds[i], vector: embedding.vectors)
             }
         }

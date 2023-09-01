@@ -73,6 +73,9 @@ final class ChatToysTests: XCTestCase {
         // Test embedding search. We're using a fake embedder that returns hashes so we can only test on EXACT matches
         let x = try await store.embeddingSearch(query: "I like oranges")[0].id
         XCTAssertEqual(x, "o1")
+        let x2 = try await store.embeddingSearch(query: "I hate apples")[0].id
+        XCTAssertEqual(x2, "a2")
+
     }
 
 }
