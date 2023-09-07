@@ -76,6 +76,7 @@ final class ChatToysTests: XCTestCase {
         let x2 = try await store.embeddingSearch(query: "I hate apples")[0].id
         XCTAssertEqual(x2, "a2")
     }
+
     func testVectorStoreStressTest() async throws {
         struct Info: Equatable, Codable {
             var value: String
@@ -89,6 +90,43 @@ final class ChatToysTests: XCTestCase {
 
         let x = try await store.embeddingSearch(query: "hello world")[0].id
         XCTAssertEqual(x, "hi")
+    }
+
+    func testVectorStoreDeletion() async throws {
+        struct Info: Equatable, Codable {}
+        let store = try VectorStore<Info>(url: nil, embedder: HashEmbedder())
+        try await store.insert(records: [
+            .init(id: "apple", group: nil, date: Date(), text: "Hey I like apples", data: .init()),
+            .init(id: "orange", group: nil, date: Date(), text: "Hey I like oranges", data: .init()),
+            .init(id: "apple-rude", group: "rude", date: Date(), text: "Hey I hate apples", data: .init()),
+            .init(id: "orange-rude", group: "rude", date: Date(), text: "Hey I hate oranges", data: .init()),
+        ])
+        let resIds = try await store.fullTextSearch(query: "hey").map { $0.id }
+        XCTAssertEqual(Set(resIds), Set(["apple", "orange", "apple-rude", "orange-rude"]))
+
+        try await store.deleteRecords(ids: ["orange-rude"])
+        let resIds2 = try await store.fullTextSearch(query: "hey").map { $0.id }
+        XCTAssertEqual(Set(resIds2), Set(["apple", "orange", "apple-rude"]))
+
+        try await store.deleteRecords(groups: ["rude"])
+        let resIds3 = try await store.fullTextSearch(query: "hey").map { $0.id }
+        XCTAssertEqual(Set(resIds3), Set(["apple", "orange"]))
+
+    }
+
+    func testLimitToMostRecent() async throws {
+        struct Info: Equatable, Codable {}
+        let store = try VectorStore<Info>(url: nil, embedder: HashEmbedder())
+        try await store.insert(records: [
+            .init(id: "apple", group: nil, date: Date(), text: "Hey I like apples", data: .init()),
+        ])
+        try await Task.sleep(seconds: 2)
+        try await store.insert(records: [
+            .init(id: "orange", group: nil, date: Date(), text: "Hey I like oranges", data: .init()),
+        ])
+        try await store.deleteOldestRecords(keep: 1)
+        let resIds = try await store.fullTextSearch(query: "hey").map { $0.id }
+        XCTAssertEqual(Set(resIds), Set(["orange"]))
     }
 }
 

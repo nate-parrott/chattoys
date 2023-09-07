@@ -166,12 +166,40 @@ public class VectorStore<RecordData: Codable & Equatable> {
         }
     }
 
-    public func deleteRecords(ids: [String]) async {
-        // TODO
+    public func deleteRecords(ids: [String]) async throws {
+        if ids.count == 0 { return }
+        // Find all records with these IDs and fetch their vectorIds
+        let vectorIds = try await dbQueue.write { db in
+            let vectorIds = try Record.filter(keys: ids).fetchAll(db).compactMap { $0.vectorId }
+            // now delete
+            try Record.deleteAll(db, keys: ids)
+            return vectorIds
+        }
+        await queue.performAsync {
+            for vecId in vectorIds {
+                self.vectorStore.remove(key: vecId)
+            }
+        }
     }
 
-    public func deleteRecords(groups: [String]) async {
-        // TODO
+    public func deleteRecords(groups: [String]) async throws {
+        let recordIds = try await dbQueue.read { db in
+            var ids = [String]()
+            for group in groups {
+                ids.append(contentsOf: try Record.filter(Column("group") == group).fetchAll(db).map { $0.id })
+            }
+            return ids
+        }
+        try await deleteRecords(ids: recordIds)
+    }
+
+    public func deleteOldestRecords(keep: Int) async throws {
+        // Select num_records - keep oldest record IDs and delete them
+        let ids = try await dbQueue.read { db in
+            let ids = try Record.order(Column("date").desc).limit(1_000_000, offset: keep).fetchAll(db).map { $0.id }
+            return ids
+        }
+        try await deleteRecords(ids: ids)
     }
 
     public func record(forId id: String) async throws -> Record? {
