@@ -128,6 +128,27 @@ final class ChatToysTests: XCTestCase {
         let resIds = try await store.fullTextSearch(query: "hey").map { $0.id }
         XCTAssertEqual(Set(resIds), Set(["orange"]))
     }
+
+    func testPersistence() async throws {
+        let tempTest = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("test-vectorstore")
+        try? FileManager.default.removeItem(at: tempTest)
+        struct Info: Equatable, Codable {}
+        let store = try VectorStore<Info>(url: tempTest, embedder: HashEmbedder())
+        try await store.insert(records: [
+            .init(id: "apple", group: nil, date: Date(), text: "Hey I like apples", data: .init()),
+        ])
+        let beforeIds_Fts = try await store.fullTextSearch(query: "hey").map { $0.id }
+        XCTAssertEqual(Set(beforeIds_Fts), Set(["apple"]))
+        let beforeIds_Vector = try await store.embeddingSearch(query: "hey").map { $0.id }
+        XCTAssertEqual(Set(beforeIds_Vector), Set(["apple"]))
+        store.save(sync: true)
+
+        let store2 = try VectorStore<Info>(url: tempTest, embedder: HashEmbedder())
+        let afterIds_Fts = try await store2.fullTextSearch(query: "hey").map { $0.id }
+        XCTAssertEqual(Set(afterIds_Fts), Set(["apple"]))
+        let afterIds_Vector = try await store2.embeddingSearch(query: "hey").map { $0.id }
+        XCTAssertEqual(Set(afterIds_Vector), Set(["apple"]))
+    }
 }
 
 struct HashEmbedder: Embedder {

@@ -72,34 +72,39 @@ public class VectorStore<RecordData: Codable & Equatable> {
 
         // Open database
         dbQueue = try DatabaseQueue(path: url?.appendingPathComponent("db.sqlite").path ?? ":memory:")
+        let tablesExist = try dbQueue.read { db in
+            try db.tableExists("record")
+        }
 
-        try dbQueue.write { db in
-            // A regular table
+        if !tablesExist {
+            try dbQueue.write { db in
+                // A regular table
 
-            try db.create(table: "record") { t in
-                // primary key is string id
-                t.column("id", .text).primaryKey()
-                t.column("date", .datetime)
-                t.column("group", .text)
-                t.column("text", .text)
-                t.column("data", .blob)
-                t.column("vectorId", .integer)
+                try db.create(table: "record") { t in
+                    // primary key is string id
+                    t.column("id", .text).primaryKey()
+                    t.column("date", .datetime)
+                    t.column("group", .text)
+                    t.column("text", .text)
+                    t.column("data", .blob)
+                    t.column("vectorId", .integer)
+                }
+                // Index on group, and vectorStoreId:
+                try db.create(index: "record_group", on: "record", columns: ["group"])
+                try db.create(index: "record_vectorStoreId", on: "record", columns: ["vectorId"])
+
+                // A full-text table synchronized with the regular table
+                try db.create(virtualTable: "record_ft", using: FTS5()) { t in // or FTS4()
+                    t.synchronize(withTable: "record")
+                    t.column("text")
+                }
             }
-            // Index on group, and vectorStoreId:
-            try db.create(index: "record_group", on: "record", columns: ["group"])
-            try db.create(index: "record_vectorStoreId", on: "record", columns: ["vectorId"])
-
-             // A full-text table synchronized with the regular table
-             try db.create(virtualTable: "record_ft", using: FTS5()) { t in // or FTS4()
-                 t.synchronize(withTable: "record")
-                 t.column("text")
-             }
         }
 
         // Setup vector store:
         self.vectorStore = USearchIndex.make(metric: .cos, dimensions: UInt32(embedder.dimensions), connectivity: 16, quantization: .F16)
-        if let path = vectorStoreURL?.path {
-            vectorStore.load(path: path)
+        if let path = vectorStoreURL?.path, FileManager.default.fileExists(atPath: path) {
+            vectorStore.load(path: path) // TODO: properly handle the NSException
         }
 
         // Setup metadata:
