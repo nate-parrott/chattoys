@@ -142,6 +142,7 @@ final class ChatToysTests: XCTestCase {
         let beforeIds_Vector = try await store.embeddingSearch(query: "hey").map { $0.id }
         XCTAssertEqual(Set(beforeIds_Vector), Set(["apple"]))
         store.save(sync: true)
+        store.save(sync: true) // test overwrite
 
         let store2 = try VectorStore<Info>(url: tempTest, embedder: HashEmbedder())
         let afterIds_Fts = try await store2.fullTextSearch(query: "hey").map { $0.id }
