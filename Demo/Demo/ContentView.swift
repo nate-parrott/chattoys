@@ -5,6 +5,7 @@ enum Screen: CaseIterable, Identifiable, Hashable {
     case chat
     case search
     case scraping
+    case semanticSearch
     case settings
 
     var id: Self { self }
@@ -25,6 +26,12 @@ struct ContentView: View {
                     Label("Search", systemImage: "magnifyingglass")
                 }
                 .tag(Screen.search)
+
+            SemanticSearchDemo()
+                .tabItem {
+                    Label("SemanticSearch", systemImage: "lasso.and.sparkles")
+                }
+                .tag(Screen.semanticSearch)
 
             Scraper()
                 .tabItem {

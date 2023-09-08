@@ -111,7 +111,8 @@ final class ChatToysTests: XCTestCase {
         try await store.deleteRecords(groups: ["rude"])
         let resIds3 = try await store.fullTextSearch(query: "hey").map { $0.id }
         XCTAssertEqual(Set(resIds3), Set(["apple", "orange"]))
-
+        let resIds3_vector = try await store.embeddingSearch(query: "hey").map { $0.id }
+        XCTAssertEqual(Set(resIds3_vector), Set(["apple", "orange"]))
     }
 
     func testLimitToMostRecent() async throws {
@@ -149,6 +150,22 @@ final class ChatToysTests: XCTestCase {
         XCTAssertEqual(Set(afterIds_Fts), Set(["apple"]))
         let afterIds_Vector = try await store2.embeddingSearch(query: "hey").map { $0.id }
         XCTAssertEqual(Set(afterIds_Vector), Set(["apple"]))
+    }
+
+    func testAtomicGroupReplacement() async throws {
+        struct Info: Equatable, Codable {}
+        let store = try VectorStore<Info>(url: nil, embedder: HashEmbedder())
+        try await store.insert(records: [
+            .init(id: "apple", group: "myGroup", date: Date(), text: "Hey I like apples", data: .init()),
+        ])
+        try await store.insert(records: [
+            .init(id: "orange", group: "myGroup", date: Date(), text: "Hey I like oranges", data: .init()),
+        ], deletingOldItemsFromGroup: "myGroup")
+
+        let afterIds_Fts = try await store.fullTextSearch(query: "hey").map { $0.id }
+        XCTAssertEqual(Set(afterIds_Fts), Set(["orange"]))
+        let afterIds_Vector = try await store.embeddingSearch(query: "hey").map { $0.id }
+        XCTAssertEqual(Set(afterIds_Vector), Set(["orange"]))
     }
 }
 

@@ -124,6 +124,10 @@ public class VectorStore<RecordData: Codable & Equatable> {
         }
     }
 
+    public func rebuild() {
+        // TODO: Implement. lock the data structure, clear the vector store and re-insert everything
+    }
+
     // MARK: - API
 
     public func save(sync: Bool) {
@@ -143,14 +147,18 @@ public class VectorStore<RecordData: Codable & Equatable> {
         }
     }
 
-    public func insert(records: [Record]) async throws {
-        // TODO: Check to see if this data matches existing data before embedding
-
+    /// TODO: should we take out a lock when doing this work?
+    /// In order for `deletingOldItemsFromGroup` to work properly, there must be no overlap between the IDs that are being added and deleted
+    public func insert(records: [Record], deletingOldItemsFromGroup group: String? = nil) async throws {
         let embeddings = try await embedder.embed(documents: records.map { $0.text })
         let vectorStoreIds = await assignVectorStoreIds(count: embeddings.count)
 
+        // TODO: Check to see if this data matches existing data before embedding
+        let idsToDelete = try await recordIds(forItemsInGroups: group != nil ? [group!] : [])
+
         try await dbQueue.write { db in
             // Remove existing records with IDs
+            // TODO: Delete existing vectors for these records
             for record in records {
                 try Record.deleteOne(db, key: record.id)
             }
@@ -168,6 +176,10 @@ public class VectorStore<RecordData: Codable & Equatable> {
             for (i, embedding) in embeddings.enumerated() {
                 self.vectorStore.add(key: vectorStoreIds[i], vector: embedding.vectors)
             }
+        }
+
+        if idsToDelete.count > 0 {
+            try await deleteRecords(ids: idsToDelete)
         }
     }
 
@@ -188,15 +200,26 @@ public class VectorStore<RecordData: Codable & Equatable> {
     }
 
     public func deleteRecords(groups: [String]) async throws {
-        let recordIds = try await dbQueue.read { db in
+        try await deleteRecords(ids: recordIds(forItemsInGroups: groups))
+    }
+
+    private func recordIds(forItemsInGroups groups: [String]) async throws -> [String] {
+        if groups.count == 0 { return [] }
+        return try await dbQueue.read { db in
             var ids = [String]()
             for group in groups {
                 ids.append(contentsOf: try Record.filter(Column("group") == group).fetchAll(db).map { $0.id })
             }
             return ids
         }
-        try await deleteRecords(ids: recordIds)
     }
+
+//    private func vectorIds(forRecordIds recordIds: [String]) async throws -> [USearchKey] {
+//        try await dbQueue.write { db in
+//            let vectorIds = try Record.filter(keys: recordIds).fetchAll(db).compactMap { $0.vectorId }
+//            return vectorIds
+//        }
+//    }
 
     public func deleteOldestRecords(keep: Int) async throws {
         // Select num_records - keep oldest record IDs and delete them
@@ -231,10 +254,12 @@ public class VectorStore<RecordData: Codable & Equatable> {
     }
 
     public func embeddingSearch(query: String, limit: Int = 10) async throws -> [Record] {
+        let invalidKey: USearchKey = 18446744073709551615
         let embedding = try await embedder.embed(documents: [query])[0]
         let (vectorIds, _) = await queue.performAsync { self.vectorStore.search(vector: embedding.vectors, count: limit) }
+        let vectorIds_Filtered = vectorIds.filter { $0 != invalidKey }
         return try await dbQueue.read { db in
-            let matches = vectorIds.compactMap { vectorId in
+            let matches = vectorIds_Filtered.compactMap { vectorId in
                 // Use sql to find the record matching vectorId
                 try? Record.fetchOne(db, sql: "SELECT * FROM record WHERE vectorId = ? LIMIT 1", arguments: [vectorId])
             }
@@ -254,8 +279,8 @@ public class VectorStore<RecordData: Codable & Equatable> {
 }
 
 public extension String {
-    func chunkForEmbedding() -> [String] {
-        let maxChunkLength = 2048 * 3 // 2048 tokens, roughly
+    func chunkForEmbedding(tokenLimit: Int = 2048) -> [String] {
+        let maxChunkLength = tokenLimit * 3 // 2048 tokens, roughly
         var chunks = [[String]]() // groups of lines
         var currentChunk = [String]()
         var currentChunkLength = 0

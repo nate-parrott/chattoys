@@ -15,6 +15,9 @@
 		5F5314DC2A1EA8DE00B1653B /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5F5314DB2A1EA8DE00B1653B /* Assets.xcassets */; };
 		5F5314E02A1EA8DE00B1653B /* Preview Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 5F5314DF2A1EA8DE00B1653B /* Preview Assets.xcassets */; };
 		5F5314EC2A1EA94F00B1653B /* ChatToys in Frameworks */ = {isa = PBXBuildFile; productRef = 5F5314EB2A1EA94F00B1653B /* ChatToys */; };
+		5F67968A2AAA7472000D3698 /* SemanticSearchDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F6796892AAA7472000D3698 /* SemanticSearchDemo.swift */; };
+		5F67968D2AAA74F8000D3698 /* Scripting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F67968C2AAA74F8000D3698 /* Scripting.swift */; };
+		5F67968F2AAA7780000D3698 /* URL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F67968E2AAA7780000D3698 /* URL.swift */; };
 		5FDBD3A12A2A8801005C8D14 /* Scraper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDBD3A02A2A8801005C8D14 /* Scraper.swift */; };
 /* End PBXBuildFile section */
 
@@ -29,6 +32,9 @@
 		5F5314DD2A1EA8DE00B1653B /* Demo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Demo.entitlements; sourceTree = "<group>"; };
 		5F5314DF2A1EA8DE00B1653B /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		5F5314E72A1EA90B00B1653B /* chattoys */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = chattoys; path = ..; sourceTree = "<group>"; };
+		5F6796892AAA7472000D3698 /* SemanticSearchDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSearchDemo.swift; sourceTree = "<group>"; };
+		5F67968C2AAA74F8000D3698 /* Scripting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scripting.swift; sourceTree = "<group>"; };
+		5F67968E2AAA7780000D3698 /* URL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URL.swift; sourceTree = "<group>"; };
 		5FDBD3A02A2A8801005C8D14 /* Scraper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scraper.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -67,10 +73,12 @@
 			children = (
 				5F5314D72A1EA8DE00B1653B /* DemoApp.swift */,
 				5F4E64A22A5C8738008EE886 /* Search.swift */,
+				5F6796892AAA7472000D3698 /* SemanticSearchDemo.swift */,
 				5F23C39A2A27BA7F00B35927 /* Chat.swift */,
 				5F23C3982A27BA6E00B35927 /* Settings.swift */,
 				5F5314D92A1EA8DE00B1653B /* ContentView.swift */,
 				5FDBD3A02A2A8801005C8D14 /* Scraper.swift */,
+				5F67968B2AAA74F2000D3698 /* Utils */,
 				5F5314DB2A1EA8DE00B1653B /* Assets.xcassets */,
 				5F5314DD2A1EA8DE00B1653B /* Demo.entitlements */,
 				5F5314DE2A1EA8DE00B1653B /* Preview Content */,
@@ -99,6 +107,15 @@
 			children = (
 			);
 			name = Frameworks;
+			sourceTree = "<group>";
+		};
+		5F67968B2AAA74F2000D3698 /* Utils */ = {
+			isa = PBXGroup;
+			children = (
+				5F67968C2AAA74F8000D3698 /* Scripting.swift */,
+				5F67968E2AAA7780000D3698 /* URL.swift */,
+			);
+			path = Utils;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -179,8 +196,11 @@
 			files = (
 				5F5314DA2A1EA8DE00B1653B /* ContentView.swift in Sources */,
 				5F23C39B2A27BA7F00B35927 /* Chat.swift in Sources */,
+				5F67968F2AAA7780000D3698 /* URL.swift in Sources */,
 				5F5314D82A1EA8DE00B1653B /* DemoApp.swift in Sources */,
+				5F67968A2AAA7472000D3698 /* SemanticSearchDemo.swift in Sources */,
 				5FDBD3A12A2A8801005C8D14 /* Scraper.swift in Sources */,
+				5F67968D2AAA74F8000D3698 /* Scripting.swift in Sources */,
 				5F23C3992A27BA6E00B35927 /* Settings.swift in Sources */,
 				5F4E64A32A5C8738008EE886 /* Search.swift in Sources */,
 			);
@@ -316,8 +336,10 @@
 				DEVELOPMENT_ASSET_PATHS = "\"Demo/Preview Content\"";
 				DEVELOPMENT_TEAM = VPN8ZW6EAC;
 				ENABLE_HARDENED_RUNTIME = YES;
+				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "We use this to read content from your current browser tab.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;
@@ -354,8 +376,10 @@
 				DEVELOPMENT_ASSET_PATHS = "\"Demo/Preview Content\"";
 				DEVELOPMENT_TEAM = VPN8ZW6EAC;
 				ENABLE_HARDENED_RUNTIME = YES;
+				"ENABLE_HARDENED_RUNTIME[sdk=macosx*]" = YES;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSAppleEventsUsageDescription = "We use this to read content from your current browser tab.";
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphoneos*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSceneManifest_Generation[sdk=iphonesimulator*]" = YES;
 				"INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents[sdk=iphoneos*]" = YES;

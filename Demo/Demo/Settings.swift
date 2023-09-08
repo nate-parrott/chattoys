@@ -3,6 +3,7 @@ import ChatToys
 
 enum LLM: String, Equatable, Codable, CaseIterable {
     case chatGPT
+    case chatGPT16k
     case gpt4
     case claude
     case llama
@@ -13,8 +14,9 @@ enum LLM: String, Equatable, Codable, CaseIterable {
         let orgId = UserDefaults.standard.string(forKey: "orgId") ?? ""
         let llamaModel = UserDefaults.standard.string(forKey: "llamaModel") ?? ""
         switch llm {
-        case .chatGPT:
-            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt35_turbo, printToConsole: true, printCost: false))
+        case .chatGPT, .chatGPT16k:
+            let model = (llm == .chatGPT16k) ? ChatGPT.Model.gpt35_turbo_16k : ChatGPT.Model.gpt35_turbo
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: model, printToConsole: true, printCost: false))
         case .gpt4:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
         case .claude:
@@ -22,6 +24,14 @@ enum LLM: String, Equatable, Codable, CaseIterable {
         case .llama:
             return LlamaCPP(modelName: llamaModel, tokenLimit: 512)
         }
+    }
+}
+
+extension OpenAIEmbedder {
+    static func create() -> OpenAIEmbedder {
+        let key = UserDefaults.standard.string(forKey: "key") ?? ""
+        let orgId = UserDefaults.standard.string(forKey: "orgId") ?? ""
+        return .init(credentials: .init(apiKey: key, orgId: orgId))
     }
 }
 
