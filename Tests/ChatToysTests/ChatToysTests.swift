@@ -175,18 +175,30 @@ final class ChatToysTests: XCTestCase {
             XCTAssertEqual(embedded, roundtripped)
         }
     }
+
+    func testSimd2() async throws {
+        let base = try await HashEmbedder().embed(documents: ["hi there"])[0]
+        for testStr in ["hi", "Hello WORLD!", "18794304"] {
+            let embeddedSimd = try await HashEmbedder(forceFloatStorage: false).embed(documents: [testStr])[0]
+            let embeddedVecs = try await HashEmbedder(forceFloatStorage: true).embed(documents: [testStr])[0]
+            XCTAssertEqual(embeddedSimd.magnitude, embeddedVecs.magnitude, accuracy: 0.01)
+            XCTAssertEqual(embeddedSimd.cosineSimilarity(with: base), embeddedVecs.cosineSimilarity(with: base), accuracy: 0.01)
+        }
+    }
 }
 
 struct HashEmbedder: Embedder {
+    var forceFloatStorage: Bool = false
+
     func embed(documents: [String]) async throws -> [Embedding] {
         return documents.map { doc in
             let hash = doc.hashValue
             var rand = SeededGenerator(string: "\(hash)")
-            return .init(vectors: (0..<32).map { _ in Float(rand.nextRandFloat1_Neg1()) }, provider: "test:hashEmbedder")
+            return .init(vectors: (0..<128).map { _ in Float(rand.nextRandFloat1_Neg1()) }, provider: "test:hashEmbedder", forceFloatStorage: forceFloatStorage)
         }
     }
     var tokenLimit: Int { 4096 } // aka context size
-    var dimensions: Int { 32 }
+    var dimensions: Int { 128 }
 }
 
 func roundtripEncoded<T: Encodable & Decodable>(_ element: T) throws -> T {

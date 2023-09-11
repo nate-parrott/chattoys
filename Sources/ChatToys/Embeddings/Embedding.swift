@@ -1,14 +1,45 @@
 import Foundation
 
 public struct Embedding: Hashable, Codable {
-    public var vectors: [Float]
+//    public var vectors: [Float]
     public var provider: String // Embeddings are not comparable across different models or providers
     public var magnitude: Float
+    fileprivate var storage: Storage
+    
+    public var vectors: [Float] {
+        switch storage {
+        case .floats(let floats):
+            return floats
+        case .simd64(let simd64s):
+            var floats: [Float] = Array()
+            floats.reserveCapacity(simd64s.count * 64)
+            for simd in simd64s {
+                for idx in simd.indices {
+                    floats.append(simd[idx])
+                }
+            }
+            return floats
+        }
+    }
 
-    public init(vectors: [Float], provider: String) {
-        self.vectors = vectors
+    enum Storage: Hashable {
+        case floats([Float])
+        case simd64([SIMD64<Float>])
+    }
+
+    public init(vectors: [Float], provider: String, forceFloatStorage: Bool = false /* for testing */) {
+        if vectors.count % 64 == 0 && !forceFloatStorage {
+            var simdVectors: [SIMD64<Float>] = []
+            for i in stride(from: 0, to: vectors.count, by: 64) {
+                simdVectors.append(SIMD64<Float>(vectors[i..<i+64]))
+            }
+            storage = .simd64(simdVectors)
+            self.magnitude = computeMagnitude(vector: simdVectors)
+        } else {
+            storage = .floats(vectors)
+            self.magnitude = computeMagnitude(vector: vectors)
+        }
         self.provider = provider
-        self.magnitude = computeMagnitude(vector: vectors)
     }
 }
 
@@ -27,6 +58,10 @@ extension Embedding {
             return 0
         }
 
+        if case .simd64(let vecs1) = storage, case .simd64(let vecs2) = other.storage {
+            return dotProduct(a: vecs1, b: vecs2) / denom
+        }
+
         return dotProduct(a: vectors, b: other.vectors) / denom
     }
 }
@@ -41,10 +76,26 @@ private func computeMagnitude(vector: [Float]) -> Float {
     return sqrt(x)
 }
 
+private func computeMagnitude(vector: [SIMD64<Float>]) -> Float {
+    var x: Float = 0
+    for el in vector {
+        x += (el * el).sum()
+    }
+    return sqrt(x)
+}
+
 private func dotProduct(a: [Float], b: [Float]) -> Float {
     var x: Float = 0
     for (a_, b_) in zip(a, b) {
         x += a_ * b_
+    }
+    return x
+}
+
+private func dotProduct(a: [SIMD64<Float>], b: [SIMD64<Float>]) -> Float {
+    var x: Float = 0
+    for (a_, b_) in zip(a, b) {
+        x += (a_ * b_).sum()
     }
     return x
 }
