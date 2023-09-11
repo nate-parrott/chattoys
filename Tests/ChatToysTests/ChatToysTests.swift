@@ -167,6 +167,14 @@ final class ChatToysTests: XCTestCase {
         let afterIds_Vector = try await store.embeddingSearch(query: "hey").map { $0.id }
         XCTAssertEqual(Set(afterIds_Vector), Set(["orange"]))
     }
+
+    func testEmbeddingDecoding() async throws {
+        for testStr in ["hi", "Hello WORLD!", "18794304"] {
+            let embedded = try await HashEmbedder().embed(documents: [testStr])[0]
+            let roundtripped = try roundtripEncoded(embedded)
+            XCTAssertEqual(embedded, roundtripped)
+        }
+    }
 }
 
 struct HashEmbedder: Embedder {
@@ -174,9 +182,14 @@ struct HashEmbedder: Embedder {
         return documents.map { doc in
             let hash = doc.hashValue
             var rand = SeededGenerator(string: "\(hash)")
-            return .init(vectors: (0..<32).map { _ in Double(rand.nextRandFloat1_Neg1()) }, provider: "test:hashEmbedder")
+            return .init(vectors: (0..<32).map { _ in Float(rand.nextRandFloat1_Neg1()) }, provider: "test:hashEmbedder")
         }
     }
     var tokenLimit: Int { 4096 } // aka context size
     var dimensions: Int { 32 }
+}
+
+func roundtripEncoded<T: Encodable & Decodable>(_ element: T) throws -> T {
+    let data = try JSONEncoder().encode(element)
+    return try JSONDecoder().decode(T.self, from: data)
 }

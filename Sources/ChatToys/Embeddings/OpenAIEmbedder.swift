@@ -89,7 +89,7 @@ public struct OpenAIEmbedder: Embedder {
 
     private struct Response: Codable {
         struct Data: Codable {
-            var embedding: [Double]
+            var embedding: [Float]
             var index: Int
         }
 
