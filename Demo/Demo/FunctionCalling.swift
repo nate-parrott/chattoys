@@ -10,13 +10,15 @@ class Tools: ObservableObject {
 
     var functions: [LLMFunction] {
         [
-            LLMFunction(name: "eval", description: "Executes a JS expression and returns the result. Use for math, text manipulation, logic, etc.", parameters: ["expr": .string(description: "JS expression or self-calling function")])
+            LLMFunction(name: "eval", description: "Executes a JS expression and returns the result. Use for math, text manipulation, logic, etc.", parameters: ["expr": .string(description: "JS expression or self-calling function")]),
+            LLMFunction(name: "appleScript", description: "Evaluate AppleScript to perform operations on the user's system", parameters: ["script": .string(description: nil)])
         ]
     }
 
     enum ToolError: Error {
         case unknownTool
         case wrongArgs
+        case unavailable
     }
 
     func handle(functionCall: LLMMessage.FunctionCall) async throws -> String {
@@ -25,6 +27,16 @@ class Tools: ObservableObject {
             if let params = functionCall.argumentsJson as? [String: String], let expr = params["expr"] {
                 let res = jsCtx.evaluateScript(expr)!
                 return res.toString()
+            } else {
+                throw ToolError.wrongArgs
+            }
+        case "appleScript":
+            if let params = functionCall.argumentsJson as? [String: String], let script = params["script"] {
+                #if os(macOS)
+                return try await Scripting.runAppleScript(script: script) ?? "(No result)"
+                #else
+                throw ToolError.unavailable
+                #endif
             } else {
                 throw ToolError.wrongArgs
             }
