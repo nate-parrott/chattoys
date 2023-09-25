@@ -35,6 +35,16 @@ public class HTMLProcessor {
             }
         }
 
+        // The markup inside noscript is parsed as text.
+        // We want to treat it as real HTML.
+        for noscript in try body.select("noscript") {
+            if let text = try? noscript.text(),
+               let baseURL,
+               let parsed = try? SwiftSoup.parseBodyFragment(text, baseURL.absoluteString).body() {
+                try? noscript.replaceWith(parsed)
+            }
+        }
+
         try body.select("script, style, link, svg").remove()
         try body.select("[srcset]").removeAttr("srcset")
 

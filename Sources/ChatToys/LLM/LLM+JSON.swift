@@ -84,7 +84,7 @@ extension ChatLLM {
         let jsonPrompt = """
 Output your answer as a valid JSON object, in this exact format:
 \(example.jsonStringNotPretty)
-Final output, ONLY the valid JSON in the structure above:
+Final output, ONLY the valid JSON in the structure above, within a ```code block```:
 """
         let fullPrompt: [LLMMessage] = prompt + [.init(role: .system, content: jsonPrompt)]
         return completeStreamingWithJSONObject(prompt: fullPrompt, type: T.self)
@@ -127,5 +127,33 @@ Final output, ONLY the valid JSON in the structure above:
             throw JSONLLMError.failedToExtractJSON
         }
         return final
+    }
+}
+
+extension AsyncThrowingStream where Element: RandomAccessCollection {
+    public var streamOfNewItems: AsyncThrowingStream<Element.Element, any Error> {
+        AsyncThrowingStream<Element.Element, any Error> { cont in
+            Task {
+                do {
+                    var sentCount = 0
+                    var last = [Element.Element]()
+                    for try await batch in self {
+                        let completeItems = Array(batch.dropLast())
+                        while sentCount < completeItems.count {
+                            cont.yield(completeItems[sentCount])
+                            sentCount += 1
+                        }
+                        last = Array(batch)
+                    }
+                    while sentCount < last.count {
+                        cont.yield(last[sentCount])
+                        sentCount += 1
+                    }
+                    cont.finish()
+                } catch {
+                    cont.finish(throwing: error)
+                }
+            }
+        }
     }
 }

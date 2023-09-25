@@ -142,7 +142,7 @@ private extension LLMMessage.Role {
     var asLlama: LlamaCPP.Message.Role {
         switch self {
         case .assistant: return .assistant
-        case .system: return .system
+        case .system, .function: return .system
         case .user: return .user
         }
     }

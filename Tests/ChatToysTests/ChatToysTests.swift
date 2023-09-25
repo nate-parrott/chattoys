@@ -178,6 +178,49 @@ final class ChatToysTests: XCTestCase {
             XCTAssertEqual(embeddedSimd.cosineSimilarity(with: base), embeddedVecs.cosineSimilarity(with: base), accuracy: 0.01)
         }
     }
+
+    func testFunctionCalling() throws {
+        let fn = LLMFunction(name: "get_current_weather", description: "Get the current weather in a given location", parameters: .init(objectWithProperties: [
+            "location": .init(stringWithDescription: "The city and state, e.g. San Francisco, CA"),
+            "unit": .init(enumeratedValue: ["celsius", "fahrenheit"], description: nil)
+        ], required: ["location"], description: nil))
+        let target = """
+    {
+      "name": "get_current_weather",
+      "description": "Get the current weather in a given location",
+      "parameters": {
+        "type": "object",
+        "properties": {
+          "location": {
+            "type": "string",
+            "description": "The city and state, e.g. San Francisco, CA"
+          },
+          "unit": {
+            "type": "string",
+            "enum": ["celsius", "fahrenheit"]
+          }
+        },
+        "required": ["location"]
+      }
+    }
+"""
+        let enc = JSONEncoder()
+        enc.outputFormatting = .prettyPrinted
+        print(try! String(data: enc.encode(fn), encoding: .utf8)!)
+        try XCTAssertTrue(compareJson(object: fn, reference: target))
+    }
+}
+
+func compareJson(data1: Data, data2: Data) throws -> Bool {
+    func normalizeJsonData(_ data: Data) throws -> Data {
+        let obj = try JSONSerialization.jsonObject(with: data)
+        return try JSONSerialization.data(withJSONObject: obj, options: [.sortedKeys, .fragmentsAllowed])
+    }
+    return try normalizeJsonData(data1) == normalizeJsonData(data2)
+}
+
+func compareJson<O: Encodable>(object: O, reference: String) throws -> Bool {
+    try compareJson(data1: JSONEncoder().encode(object), data2: reference.data(using: .utf8)!)
 }
 
 struct HashEmbedder: Embedder {

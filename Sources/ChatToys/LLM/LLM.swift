@@ -5,6 +5,7 @@ public struct LLMMessage: Equatable, Codable {
         case system
         case user
         case assistant
+        case function // OpenAI only
     }
 
     public var role: Role

@@ -43,6 +43,7 @@ extension ChatGPT: ChatLLM {
            case system
            case user
            case assistant
+           case function
        }
         var role: Role
         var content: String
@@ -174,6 +175,7 @@ private extension LLMMessage.Role {
         case .assistant: return .assistant
         case .system: return .system
         case .user: return .user
+        case .function: return .function
         }
     }
 }
@@ -190,6 +192,7 @@ private extension ChatGPT.Message.Role {
         case .assistant: return .assistant
         case .system: return .system
         case .user: return .user
+        case .function: return .function
         }
     }
 }

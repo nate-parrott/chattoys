@@ -130,7 +130,7 @@ extension Sequence where Element == LLMMessage {
 private extension LLMMessage.Role {
     var asAnthropicRole: String {
         switch self {
-        case .user, .system: return "Human"
+        case .user, .system, .function: return "Human"
         case .assistant: return "Assistant"
         }
     }
