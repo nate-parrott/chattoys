@@ -10,10 +10,23 @@ public struct LLMMessage: Equatable, Codable {
 
     public var role: Role
     public var content: String
+    public var functionCall: FunctionCall?
+    public var nameOfFunctionThatProduced: String?
 
-    public init(role: Role, content: String) {
+    public struct FunctionCall: Equatable, Codable, Hashable {
+        public var name: String
+        public var arguments: String // as json
+
+        public var argumentsJson: Any? {
+            try? JSONSerialization.jsonObject(with: arguments.data(using: .utf8)!)
+        }
+    }
+
+    public init(role: Role, content: String, functionCall: FunctionCall? = nil, nameOfFunctionThatProduced: String? = nil) {
         self.role = role
         self.content = content
+        self.functionCall = functionCall
+        self.nameOfFunctionThatProduced = nameOfFunctionThatProduced
     }
 }
 

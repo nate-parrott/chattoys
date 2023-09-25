@@ -46,15 +46,18 @@ extension ChatGPT: ChatLLM {
            case function
        }
         var role: Role
-        var content: String
+        var content: String?
+        var name: String? // For function call responses (role=function)
+        var function_call: LLMMessage.FunctionCall?
    }
 
-   struct ChatCompletionRequest: Codable {
+   struct ChatCompletionRequest: Encodable {
        var messages: [Message]
        var model: String
        var temperature: Double = 0.2
        var stream = true
        var stop: [String]?
+       var functions: [LLMFunction]?
    }
 
     private struct ChatCompletionStreamingResponse: Codable {
@@ -84,7 +87,7 @@ extension ChatGPT: ChatLLM {
             return AsyncThrowingStream { cont in
                 Task {
                     do {
-                        let result = try await complete(prompt: prompt)
+                        let result = try await _complete(prompt: prompt)
                         cont.yield(result)
                         cont.finish()
                     } catch {
@@ -94,7 +97,7 @@ extension ChatGPT: ChatLLM {
             }
         }
 
-        let request = createChatRequest(prompt: prompt, stream: true)
+        let request = createChatRequest(prompt: prompt, functions: [], stream: true)
 
         if options.printToConsole {
             print("OpenAI request:\n\((prompt.asConversationString))")
@@ -108,7 +111,7 @@ extension ChatGPT: ChatLLM {
            src.onComplete { statusCode, reconnect, error in
                if let statusCode, statusCode / 100 == 2 {
                    if options.printToConsole {
-                       print("OpenAI response:\n\((message.content))")
+                       print("OpenAI response:\n\((message.content ?? ""))")
                    }
                    continuation.finish()
                } else {
@@ -127,7 +130,7 @@ extension ChatGPT: ChatLLM {
                    let decoded = try JSONDecoder().decode(ChatCompletionStreamingResponse.self, from: Data(data.utf8))
                    if let delta = decoded.choices.first?.delta {
                        message.role = delta.role ?? message.role
-                       message.content += delta.content ?? ""
+                       message.content = (message.content ?? "") + (delta.content ?? "")
                        continuation.yield(message.asLLMMessage)
                    }
                } catch {
@@ -146,8 +149,9 @@ extension ChatGPT: ChatLLM {
        return json.choices.first?.delta.content
    }
 
-    private func createChatRequest(prompt: [LLMMessage], stream: Bool) -> URLRequest {
-        let cr = ChatCompletionRequest(messages: prompt.map { $0.asChatGPT }, model: options.model.rawValue, temperature: options.temperature, stream: stream, stop: options.stop.nilIfEmptyArray)
+    // don't pass functions AND stream
+    private func createChatRequest(prompt: [LLMMessage], functions: [LLMFunction], stream: Bool) -> URLRequest {
+        let cr = ChatCompletionRequest(messages: prompt.map { $0.asChatGPT }, model: options.model.rawValue, temperature: options.temperature, stream: stream, stop: options.stop.nilIfEmptyArray, functions: functions.nilIfEmptyArray)
 
        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
        var request = URLRequest(url: url)
@@ -160,12 +164,11 @@ extension ChatGPT: ChatLLM {
        request.httpBody = try! JSONEncoder().encode(cr)
        return request
    }
-
 }
 
 private extension LLMMessage {
     var asChatGPT: ChatGPT.Message {
-        ChatGPT.Message(role: role.asChatGPT, content: content)
+        ChatGPT.Message(role: role.asChatGPT, content: content, name: nameOfFunctionThatProduced, function_call: functionCall)
     }
 }
 
@@ -182,7 +185,7 @@ private extension LLMMessage.Role {
 
 private extension ChatGPT.Message {
     var asLLMMessage: LLMMessage {
-        LLMMessage(role: role.asLLMMessage, content: content)
+        LLMMessage(role: role.asLLMMessage, content: content ?? "", functionCall: function_call, nameOfFunctionThatProduced: name)
     }
 }
 
@@ -212,13 +215,17 @@ extension ChatGPT {
         var usage: Usage?
     }
 
-    func complete(prompt: [LLMMessage]) async throws -> LLMMessage {
-        let request = createChatRequest(prompt: prompt, stream: false)
+    func _complete(prompt: [LLMMessage], functions: [LLMFunction] = []) async throws -> LLMMessage {
+        let request = createChatRequest(prompt: prompt, functions: functions, stream: false)
         let (data, _) = try await URLSession.shared.data(for: request)
         let response = try JSONDecoder().decode(NonStreamingResponse.self, from: data)
 
         guard let result = response.choices.first?.message else {
             throw LLMError.unknown
+        }
+
+        if options.printToConsole {
+            print("OpenAI response:\n\((result))")
         }
 
         if options.printCost, let usage = response.usage {
@@ -258,5 +265,11 @@ extension ChatGPT.Model {
         case .gpt4: return (3, 6)
         case .gpt4_32k: return (6, 12)
         }
+    }
+}
+
+extension ChatGPT: FunctionCallingLLM {
+    public func complete(prompt: [LLMMessage], functions: [LLMFunction]) async throws -> LLMMessage {
+        try await _complete(prompt: prompt, functions: functions)
     }
 }

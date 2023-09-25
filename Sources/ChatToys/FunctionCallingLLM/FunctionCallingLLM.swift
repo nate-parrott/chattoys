@@ -2,83 +2,77 @@ import Foundation
 
 public protocol FunctionCallingLLM {
     // TODO: Support streaming?
-    func complete(prompt: [LLMMessage]) async throws -> LLMMessage
+    func complete(prompt: [LLMMessage], functions: [LLMFunction]) async throws -> LLMMessage
     var tokenLimit: Int { get } // aka context size
 }
 
-//public struct Function {
-//    public var name: String
-//    public var description: String
-//    public var parameter: FunctionType
-//
-//    public struct Param {
-//        public var description: String?
-//    }
-//}
-
-public struct LLMFunction: Equatable, Codable {
+public struct LLMFunction: Equatable, Encodable {
     public var name: String
     public var description: String
     public var parameters: JsonSchema
 
-    public init(name: String, description: String, parameters: JsonSchema) {
+    public init(name: String, description: String, parameters: [String: JsonSchema], required: [String]? = nil) {
         self.name = name
         self.description = description
-        self.parameters = parameters
+        self.parameters = .object(description: nil, properties: parameters, required: required ?? Array(parameters.keys))
     }
 
-    public struct JsonSchema: Equatable, Codable {
-        public enum Data: String, Codable, Equatable {
-            case string
-            case object
-            case number
-            case integer
-            case array
-            case boolean
-        }
-        public var type: TypeField
-        public var description: String?
-        public var required: [String]? // for type=object
-        public var properties: [String: JsonSchema]?
-        public var items: JsonSchema? // for type=array
-        public var `enum`: [String]? // For type=string that can take certain values
+    public indirect enum JsonSchema: Equatable, Encodable {
+        case string(description: String?) // Encode as type=string, description=description
+        case number(description: String?) // Encode as type=number, description=description
+        case boolean(description: String?) // Encode as type=boolean, description=description
+        case enumerated(description: String?, options: [String]) // Encode as type=string, enum=options, description=description
+        case object(description: String?, properties: [String: JsonSchema], required: [String]) // Encode as type=object, properties=properties, required=required
+        case array(description: String?, itemType: JsonSchema) // Encode as type=array, items=itemType
 
-        public init(enumeratedValue: [String], description: String?) {
-            self.type = .string
-            self.enum = enumeratedValue
+        public func encode(to encoder: Encoder) throws {
+            // Do not include nil keys
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            switch self {
+            case .string(let description):
+                try container.encode("string", forKey: .type)
+                if let description = description {
+                    try container.encode(description, forKey: .description)
+                }
+            case .number(let description):
+                try container.encode("number", forKey: .type)
+                if let description = description {
+                    try container.encode(description, forKey: .description)
+                }
+            case .boolean(let description):
+                try container.encode("boolean", forKey: .type)
+                if let description = description {
+                    try container.encode(description, forKey: .description)
+                }
+            case .enumerated(let description, let options):
+                try container.encode("string", forKey: .type)
+                try container.encode(options, forKey: .enum)
+                if let description = description {
+                    try container.encode(description, forKey: .description)
+                }
+            case .object(let description, let properties, let required):
+                try container.encode("object", forKey: .type)
+                try container.encode(properties, forKey: .properties)
+                try container.encode(required, forKey: .required)
+                if let description = description {
+                    try container.encode(description, forKey: .description)
+                }
+            case .array(let description, let itemType):
+                try container.encode("array", forKey: .type)
+                try container.encode(itemType, forKey: .items)
+                if let description = description {
+                    try container.encode(description, forKey: .description)
+                }
+            }
         }
 
-        public init(objectWithProperties props: [String: JsonSchema], required: [String]?, description: String?) {
-            self.type = .object
-            self.properties = props
-            self.required = required
-            self.description = description
-        }
-
-        public init(arrayOfItems items: JsonSchema, description: String?) {
-            self.type = .array
-            self.items = items
-            self.description = description
-        }
-
-        public init(integerWithDescription: String?) {
-            self.type = .integer
-            self.description = integerWithDescription
-        }
-
-        public init(numberWithDescription: String?) {
-            self.type = .number
-            self.description = numberWithDescription
-        }
-
-        public init(booleanWithDescription: String?) {
-            self.type = .boolean
-            self.description = booleanWithDescription
-        }
-
-        public init(stringWithDescription: String?) {
-            self.type = .string
-            self.description = stringWithDescription
+        private enum CodingKeys: String, CodingKey {
+            case type
+            case description
+            case `enum`
+            case properties
+            case required
+            case items
         }
     }
 }

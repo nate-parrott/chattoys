@@ -18,6 +18,7 @@
 		5F67968A2AAA7472000D3698 /* SemanticSearchDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F6796892AAA7472000D3698 /* SemanticSearchDemo.swift */; };
 		5F67968D2AAA74F8000D3698 /* Scripting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F67968C2AAA74F8000D3698 /* Scripting.swift */; };
 		5F67968F2AAA7780000D3698 /* URL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F67968E2AAA7780000D3698 /* URL.swift */; };
+		5FD74ABB2AC12EC70087E27A /* FunctionCalling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD74ABA2AC12EC70087E27A /* FunctionCalling.swift */; };
 		5FDBD3A12A2A8801005C8D14 /* Scraper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDBD3A02A2A8801005C8D14 /* Scraper.swift */; };
 /* End PBXBuildFile section */
 
@@ -35,6 +36,7 @@
 		5F6796892AAA7472000D3698 /* SemanticSearchDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSearchDemo.swift; sourceTree = "<group>"; };
 		5F67968C2AAA74F8000D3698 /* Scripting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scripting.swift; sourceTree = "<group>"; };
 		5F67968E2AAA7780000D3698 /* URL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URL.swift; sourceTree = "<group>"; };
+		5FD74ABA2AC12EC70087E27A /* FunctionCalling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FunctionCalling.swift; sourceTree = "<group>"; };
 		5FDBD3A02A2A8801005C8D14 /* Scraper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scraper.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -77,6 +79,7 @@
 				5F23C39A2A27BA7F00B35927 /* Chat.swift */,
 				5F23C3982A27BA6E00B35927 /* Settings.swift */,
 				5F5314D92A1EA8DE00B1653B /* ContentView.swift */,
+				5FD74ABA2AC12EC70087E27A /* FunctionCalling.swift */,
 				5FDBD3A02A2A8801005C8D14 /* Scraper.swift */,
 				5F67968B2AAA74F2000D3698 /* Utils */,
 				5F5314DB2A1EA8DE00B1653B /* Assets.xcassets */,
@@ -196,6 +199,7 @@
 			files = (
 				5F5314DA2A1EA8DE00B1653B /* ContentView.swift in Sources */,
 				5F23C39B2A27BA7F00B35927 /* Chat.swift in Sources */,
+				5FD74ABB2AC12EC70087E27A /* FunctionCalling.swift in Sources */,
 				5F67968F2AAA7780000D3698 /* URL.swift in Sources */,
 				5F5314D82A1EA8DE00B1653B /* DemoApp.swift in Sources */,
 				5F67968A2AAA7472000D3698 /* SemanticSearchDemo.swift in Sources */,

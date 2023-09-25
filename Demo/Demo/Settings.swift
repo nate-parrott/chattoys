@@ -8,6 +8,22 @@ enum LLM: String, Equatable, Codable, CaseIterable {
     case claude
     case llama
 
+    static func createFunctionCalling() -> (any FunctionCallingLLM)? {
+        let llm: LLM = .init(rawValue: UserDefaults.standard.string(forKey: "llm") ?? "") ?? .chatGPT
+        let key = UserDefaults.standard.string(forKey: "key") ?? ""
+        let orgId = UserDefaults.standard.string(forKey: "orgId") ?? ""
+        let llamaModel = UserDefaults.standard.string(forKey: "llamaModel") ?? ""
+        switch llm {
+        case .chatGPT, .chatGPT16k:
+            let model = (llm == .chatGPT16k) ? ChatGPT.Model.gpt35_turbo_16k : ChatGPT.Model.gpt35_turbo
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: model, printToConsole: true, printCost: false))
+        case .gpt4:
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
+        case .claude, .llama:
+            return nil
+        }
+    }
+
     static func create() -> any ChatLLM {
         let llm: LLM = .init(rawValue: UserDefaults.standard.string(forKey: "llm") ?? "") ?? .chatGPT
         let key = UserDefaults.standard.string(forKey: "key") ?? ""

@@ -180,10 +180,13 @@ final class ChatToysTests: XCTestCase {
     }
 
     func testFunctionCalling() throws {
-        let fn = LLMFunction(name: "get_current_weather", description: "Get the current weather in a given location", parameters: .init(objectWithProperties: [
-            "location": .init(stringWithDescription: "The city and state, e.g. San Francisco, CA"),
-            "unit": .init(enumeratedValue: ["celsius", "fahrenheit"], description: nil)
-        ], required: ["location"], description: nil))
+        let fn = LLMFunction(
+            name: "get_current_weather",
+            description: "Get the current weather in a given location",
+            parameters: [
+                "location": .string(description: "The city and state, e.g. San Francisco, CA"),
+                "unit": .enumerated(description: nil, options: ["celsius", "fahrenheit"])
+            ], required: ["location"])
         let target = """
     {
       "name": "get_current_weather",

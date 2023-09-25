@@ -6,6 +6,7 @@ enum Screen: CaseIterable, Identifiable, Hashable {
     case search
     case scraping
     case semanticSearch
+    case functionCalling
     case settings
 
     var id: Self { self }
@@ -32,6 +33,13 @@ struct ContentView: View {
                     Label("SemanticSearch", systemImage: "lasso.and.sparkles")
                 }
                 .tag(Screen.semanticSearch)
+
+            FunctionCallingDemo()
+                .tabItem {
+                    Label("Functions", systemImage: "wifi")
+                }
+                .tag(Screen.functionCalling)
+
 
             Scraper()
                 .tabItem {
