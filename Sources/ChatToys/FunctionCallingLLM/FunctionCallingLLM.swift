@@ -1,8 +1,8 @@
 import Foundation
 
 public protocol FunctionCallingLLM {
-    // TODO: Support streaming?
     func complete(prompt: [LLMMessage], functions: [LLMFunction]) async throws -> LLMMessage
+    func completeStreaming(prompt: [LLMMessage], functions: [LLMFunction]) -> AsyncThrowingStream<LLMMessage, Error>
     var tokenLimit: Int { get } // aka context size
 }
 

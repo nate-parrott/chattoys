@@ -4,6 +4,7 @@ public struct Embedding: Hashable, Codable {
 //    public var vectors: [Float]
     public var provider: String // Embeddings are not comparable across different models or providers
     public var magnitude: Float
+    public var halfPrecision: Bool // float16
     fileprivate var storage: Storage
     
     public var vectors: [Float] {
@@ -27,7 +28,7 @@ public struct Embedding: Hashable, Codable {
         case simd64([SIMD64<Float>])
     }
 
-    public init(vectors: [Float], provider: String, forceFloatStorage: Bool = false /* for testing */) {
+    public init(vectors: [Float], provider: String, halfPrecision: Bool = false, forceFloatStorage: Bool = false /* for testing */) {
         if vectors.count % 64 == 0 && !forceFloatStorage {
             var simdVectors: [SIMD64<Float>] = []
             for i in stride(from: 0, to: vectors.count, by: 64) {
@@ -40,6 +41,7 @@ public struct Embedding: Hashable, Codable {
             self.magnitude = computeMagnitude(vector: vectors)
         }
         self.provider = provider
+        self.halfPrecision = halfPrecision
     }
 }
 
@@ -133,27 +135,73 @@ private enum FloatArrayToBase64 {
     }
 }
 
+private enum Float16ArrayToBase64 {
+    // Convert to little endian
+    static func encode(_ floats: [Float]) -> String {
+        var bytes: [UInt8] = []
+        for float in floats {
+            var leFloat: UInt16 = Float16(float).bitPattern.littleEndian
+            withUnsafeBytes(of: &leFloat) { bytes.append(contentsOf: $0) }
+        }
+        let data = Data(bytes)
+        let base64String = data.base64EncodedString()
+        return base64String
+    }
+
+    static func decode(fromBase64String string: String) -> [Float]? {
+        guard let data = Data(base64Encoded: string) else {
+            return nil
+        }
+        var decodedFloats: [Float] = []
+        let count = data.count / MemoryLayout<UInt16>.size
+
+        data.withUnsafeBytes { ptr in
+            for i in 0..<count {
+                let start = i * MemoryLayout<UInt16>.size
+                let leBits = UInt16(littleEndian: ptr.load(fromByteOffset: start, as: UInt16.self))
+                decodedFloats.append(Float(Float16(bitPattern: leBits)))
+            }
+        }
+        return decodedFloats
+    }
+}
+
 // Implement custom encode/decode for Embedding
 extension Embedding {
     enum CodingKeys: String, CodingKey {
         case vectors
+        case vectorsHalfPrecision // float16
         case provider
     }
 
     public init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let vectorsBase64 = try container.decode(String.self, forKey: .vectors)
-        guard let vectors = FloatArrayToBase64.decode(fromBase64String: vectorsBase64) else {
-            throw DecodingError.dataCorruptedError(forKey: .vectors, in: container, debugDescription: "Could not decode vectors")
-        }
         let provider = try container.decode(String.self, forKey: .provider)
-        self.init(vectors: vectors, provider: provider)
+
+        if container.contains(.vectorsHalfPrecision) {
+            let vectorsBase64 = try container.decode(String.self, forKey: .vectorsHalfPrecision)
+            guard let vectors = Float16ArrayToBase64.decode(fromBase64String: vectorsBase64) else {
+                throw DecodingError.dataCorruptedError(forKey: .vectors, in: container, debugDescription: "Could not decode vectors")
+            }
+            self.init(vectors: vectors, provider: provider, halfPrecision: true)
+        } else {
+            let vectorsBase64 = try container.decode(String.self, forKey: .vectors)
+            guard let vectors = FloatArrayToBase64.decode(fromBase64String: vectorsBase64) else {
+                throw DecodingError.dataCorruptedError(forKey: .vectors, in: container, debugDescription: "Could not decode vectors")
+            }
+            self.init(vectors: vectors, provider: provider, halfPrecision: false)
+        }
     }
 
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
-        let vectorsBase64 = FloatArrayToBase64.encode(vectors)
-        try container.encode(vectorsBase64, forKey: .vectors)
+        if halfPrecision {
+            let vectorsBase64 = Float16ArrayToBase64.encode(vectors)
+            try container.encode(vectorsBase64, forKey: .vectorsHalfPrecision)
+        } else {
+            let vectorsBase64 = FloatArrayToBase64.encode(vectors)
+            try container.encode(vectorsBase64, forKey: .vectors)
+        }
         try container.encode(provider, forKey: .provider)
     }
 }

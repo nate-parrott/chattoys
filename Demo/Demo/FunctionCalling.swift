@@ -85,21 +85,29 @@ struct FunctionCallingDemo: View {
         Task {
             var messages = self.messages
 
-            func append(message: LLMMessage) {
+            func received(message: LLMMessage, new: Bool) {
+                if !new { messages.removeLast() }
                 messages.append(message)
                 DispatchQueue.main.async {
-                    self.messages.append(message)
+                    if new {
+                        self.messages.append(message)
+                    } else {
+                        self.messages[self.messages.count - 1] = message
+                    }
                 }
             }
 
             do {
                 while true {
                     // TODO: truncate prompt
-                    let resp = try await llm.complete(prompt: messages, functions: self.tools.functions)
-                    append(message: resp)
-                    if let fn = resp.functionCall {
+                    var incoming: LLMMessage?
+                    for try await partial in llm.completeStreaming(prompt: messages, functions: self.tools.functions) {
+                        received(message: partial, new: incoming == nil)
+                        incoming = partial
+                    }
+                    if let fn = incoming?.functionCall {
                         let res = try await self.tools.handle(functionCall: fn)
-                        append(message: .init(role: .function, content: res, nameOfFunctionThatProduced: fn.name))
+                        received(message: .init(role: .function, content: res, nameOfFunctionThatProduced: fn.name), new: true)
                     } else {
                         break
                     }
@@ -109,7 +117,7 @@ struct FunctionCallingDemo: View {
                 }
             } catch {
                 let text = "Error: \(error)"
-                append(message: .init(role: .system, content: text))
+                received(message: .init(role: .system, content: text), new: true)
                 DispatchQueue.main.async {
                     self.botIsTyping = false
                 }

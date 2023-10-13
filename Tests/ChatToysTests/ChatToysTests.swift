@@ -179,6 +179,22 @@ final class ChatToysTests: XCTestCase {
         }
     }
 
+    func testHalfPrecisionEmbeddings() async throws {
+        for testStr in ["hi", "Hello WORLD!", "18794304"] {
+            let originalHighPrec = try await HashEmbedder().embed(documents: [testStr])[0]
+            var originalLowPrec = originalHighPrec
+            originalLowPrec.halfPrecision = true
+            let roundtripLowPrec = try roundtripEncoded(originalLowPrec)
+            let roundtripLowPrec2 = try roundtripEncoded(roundtripLowPrec)
+            XCTAssertEqual(roundtripLowPrec2, roundtripLowPrec)
+            XCTAssertTrue(roundtripLowPrec.halfPrecision)
+            XCTAssert(roundtripLowPrec.cosineSimilarity(with: originalHighPrec) >= 0.99)
+            let encodedHighPrec = try! JSONEncoder().encode(originalHighPrec)
+            let encodedLowPrec = try! JSONEncoder().encode(originalLowPrec)
+            XCTAssertLessThan(encodedLowPrec.count, encodedHighPrec.count)
+        }
+    }
+
     func testFunctionCalling() throws {
         let fn = LLMFunction(
             name: "get_current_weather",

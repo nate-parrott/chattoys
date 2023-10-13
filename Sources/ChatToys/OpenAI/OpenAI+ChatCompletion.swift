@@ -65,6 +65,12 @@ extension ChatGPT: ChatLLM {
             struct MessageDelta: Codable {
                 var role: Message.Role?
                 var content: String?
+                var function_call: PartialFunctionCall?
+
+                struct PartialFunctionCall: Codable {
+                    var name: String?
+                    var arguments: String?
+                }
             }
             var delta: MessageDelta
         }
@@ -82,12 +88,16 @@ extension ChatGPT: ChatLLM {
     }
 
     public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
+        _completeStreaming(prompt: prompt, functions: [])
+    }
+
+    func _completeStreaming(prompt: [LLMMessage], functions: [LLMFunction]) -> AsyncThrowingStream<LLMMessage, Error> {
         // `printCost` requires not streaming the response.
         if options.printCost {
             return AsyncThrowingStream { cont in
                 Task {
                     do {
-                        let result = try await _complete(prompt: prompt)
+                        let result = try await _complete(prompt: prompt, functions: functions)
                         cont.yield(result)
                         cont.finish()
                     } catch {
@@ -97,7 +107,7 @@ extension ChatGPT: ChatLLM {
             }
         }
 
-        let request = createChatRequest(prompt: prompt, functions: [], stream: true)
+        let request = createChatRequest(prompt: prompt, functions: functions, stream: true)
 
         if options.printToConsole {
             print("OpenAI request:\n\((prompt.asConversationString))")
@@ -131,6 +141,11 @@ extension ChatGPT: ChatLLM {
                    if let delta = decoded.choices.first?.delta {
                        message.role = delta.role ?? message.role
                        message.content = (message.content ?? "") + (delta.content ?? "")
+                       if let functionDelta = delta.function_call {
+                           message.function_call = message.function_call ?? .init(name: "", arguments: "")
+                           message.function_call?.name += functionDelta.name ?? ""
+                           message.function_call?.arguments += functionDelta.arguments ?? ""
+                       }
                        continuation.yield(message.asLLMMessage)
                    }
                } catch {
@@ -271,5 +286,9 @@ extension ChatGPT.Model {
 extension ChatGPT: FunctionCallingLLM {
     public func complete(prompt: [LLMMessage], functions: [LLMFunction]) async throws -> LLMMessage {
         try await _complete(prompt: prompt, functions: functions)
+    }
+
+    public func completeStreaming(prompt: [LLMMessage], functions: [LLMFunction]) -> AsyncThrowingStream<LLMMessage, Error> {
+        _completeStreaming(prompt: prompt, functions: functions)
     }
 }
