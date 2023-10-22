@@ -6,7 +6,7 @@ public struct GoogleSearchEngine: WebSearchEngine {
     }
 
     // MARK: - WebSearchEngine
-    public func search(query: String) async throws -> [WebSearchResult] {
+    public func search(query: String) async throws -> WebSearchResponse {
         var urlComponents = URLComponents(string: "https://www.google.com/search")!
         urlComponents.queryItems = [
             URLQueryItem(name: "q", value: query),
@@ -23,7 +23,7 @@ public struct GoogleSearchEngine: WebSearchEngine {
         return try extract(html: html, baseURL: baseURL)
     }
 
-    private func extract(html: String, baseURL: URL) throws -> [WebSearchResult] {
+    private func extract(html: String, baseURL: URL) throws -> WebSearchResponse {
         let doc = try SwiftSoup.parse(html, baseURL.absoluteString)
         guard let main = try doc.select("#main").first() else {
             throw SearchError.missingMainElement
@@ -56,7 +56,16 @@ public struct GoogleSearchEngine: WebSearchEngine {
         if let youtubeResults = try main.extractYouTubeResults() {
             results.insert(contentsOf: youtubeResults, at: min(1, results.count))
         }
-        return results
+
+        var infoBox: String?
+        if let kp = try? main.select(".kp-header").first()?.text().nilIfEmptyOrJustWhitespace {
+            infoBox = kp
+        } 
+//        else if let feedbackBox = try? main.select("[aria-label='Give feedback on this result']").first()?.nthParent(4)?.text().nilIfEmptyOrJustWhitespace {
+//            infoBox = feedbackBox
+//        }
+
+        return .init(results: results, infoBox: infoBox)
     }
 
     enum SearchError: Error {
@@ -140,5 +149,12 @@ private extension Element {
             try? link.remove()
         }
         return (try? copy.text()) ?? ""
+    }
+
+    func nthParent(_ n: Int) -> Element? {
+        if n <= 0 {
+            return self
+        }
+        return parent()?.nthParent(n - 1)
     }
 }

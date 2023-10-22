@@ -1,5 +1,10 @@
 import Foundation
 
+public struct WebSearchResponse: Equatable, Codable {
+    public var results: [WebSearchResult]
+    public var infoBox: String?
+}
+
 public struct WebSearchResult: Equatable, Codable, Identifiable {
     public var id: URL { url }
     public var url: URL
@@ -39,12 +44,9 @@ extension WebSearchResult: CustomStringConvertible {
             "   \(snippet?.truncateTail(maxLen: 80) ?? "[No snippet]")"
         ]
         return lines.joined(separator: "\n")
-//        print(" - [\(res.url.host ?? "??")]")
-//        print("   \(res.title)\n   \(res.snippet?.prefix(80) ?? "[No snippet]")")
-//        print("")
     }
 }
 
 public protocol WebSearchEngine {
-    func search(query: String) async throws -> [WebSearchResult]
+    func search(query: String) async throws -> WebSearchResponse
 }

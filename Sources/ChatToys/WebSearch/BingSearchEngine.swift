@@ -8,7 +8,7 @@ public struct BingSearchEngine: WebSearchEngine {
     }
 
     // MARK: - WebSearchEngine
-    public func search(query: String) async throws -> [WebSearchResult] {
+    public func search(query: String) async throws -> WebSearchResponse {
         let count = 10
         let endpoint = "https://api.bing.microsoft.com/"
         var urlComponents = URLComponents(string: endpoint + "/v7.0/search")!
@@ -23,7 +23,10 @@ public struct BingSearchEngine: WebSearchEngine {
         let (data, _) = try await URLSession.shared.data(for: request)
 
         let response = try JSONDecoder().decode(BingAPIResponse.self, from: data)
-        return response.webPages?.value.map { WebSearchResult(url: $0.url, title: $0.name, snippet: $0.snippet) } ?? []
+        let results: [WebSearchResult] = response.webPages?.value.map { WebSearchResult(url: $0.url, title: $0.name, snippet: $0.snippet) } ?? []
+
+        // TODO: Add info box from response
+        return .init(results: results, infoBox: nil)
     }
 }
 

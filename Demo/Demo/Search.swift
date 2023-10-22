@@ -3,7 +3,7 @@ import ChatToys
 
 struct SearchDemo: View {
     @State private var query = ""
-    @State private var results = [WebSearchResult]()
+    @State private var result: WebSearchResponse?
     @State private var error: String?
 
     var body: some View {
@@ -25,8 +25,13 @@ struct SearchDemo: View {
             }
 
             Section(header: Text("Results")) {
-                ForEach(results, id: \.url) { result in
-                    ResultCell(result: result)
+                if let result {
+                    if let box = result.infoBox {
+                        Label(box, systemImage: "info.bubble")
+                    }
+                    ForEach(result.results, id: \.url) { result in
+                        ResultCell(result: result)
+                    }
                 }
             }
         }
@@ -37,7 +42,7 @@ struct SearchDemo: View {
         Task {
             do {
                 self.error = nil
-                results = try await GoogleSearchEngine().search(query: query)
+                result = try await GoogleSearchEngine().search(query: query)
             } catch {
                 self.error = error.localizedDescription
             }

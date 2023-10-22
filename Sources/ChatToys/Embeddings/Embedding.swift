@@ -30,10 +30,16 @@ public struct Embedding: Hashable, Codable {
 
     public init(vectors: [Float], provider: String, halfPrecision: Bool = false, forceFloatStorage: Bool = false /* for testing */) {
         if vectors.count % 64 == 0 && !forceFloatStorage {
-            var simdVectors: [SIMD64<Float>] = []
-            for i in stride(from: 0, to: vectors.count, by: 64) {
-                simdVectors.append(SIMD64<Float>(vectors[i..<i+64]))
+            let vecCount = vectors.count / 64
+            let simdVectors = vectors.withUnsafeBufferPointer { ptr in
+                return ptr.baseAddress!.withMemoryRebound(to: SIMD64<Float>.self, capacity: vecCount) { rebound in
+                    return Array<SIMD64<Float>>(UnsafeBufferPointer(start: rebound, count: vecCount))
+                }
             }
+//            var simdVectors: [SIMD64<Float>] = []
+//            for i in stride(from: 0, to: vectors.count, by: 64) {
+//                simdVectors.append(SIMD64<Float>(vectors[i..<i+64]))
+//            }
             storage = .simd64(simdVectors)
             self.magnitude = computeMagnitude(vector: simdVectors)
         } else {
@@ -42,6 +48,17 @@ public struct Embedding: Hashable, Codable {
         }
         self.provider = provider
         self.halfPrecision = halfPrecision
+    }
+
+    public init?(data: Data, halfPrecision: Bool, provider: String) {
+        guard let vectors = halfPrecision ? Float16ArrayToData.decode(fromData: data) : FloatArrayToData.decode(fromData: data) else {
+            return nil
+        }
+        self = .init(vectors: vectors, provider: provider, halfPrecision: halfPrecision)
+    }
+
+    public var dataHalfPrecision: Data {
+        Float16ArrayToData.encode(vectors)
     }
 }
 
@@ -104,23 +121,18 @@ private func dotProduct(a: [SIMD64<Float>], b: [SIMD64<Float>]) -> Float {
 
 // MARK: - Encoding
 
-private enum FloatArrayToBase64 {
+private enum FloatArrayToData {
     // Convert to little endian
-    static func encode(_ floats: [Float]) -> String {
+    static func encode(_ floats: [Float]) -> Data {
         var bytes: [UInt8] = []
         for float in floats {
             var leFloat = float.bitPattern.littleEndian
             withUnsafeBytes(of: &leFloat) { bytes.append(contentsOf: $0) }
         }
-        let data = Data(bytes)
-        let base64String = data.base64EncodedString()
-        return base64String
+        return Data(bytes)
     }
 
-    static func decode(fromBase64String string: String) -> [Float]? {
-        guard let data = Data(base64Encoded: string) else {
-            return nil
-        }
+    static func decode(fromData data: Data) -> [Float] {
         var decodedFloats: [Float] = []
         let count = data.count / MemoryLayout<UInt32>.size
 
@@ -133,25 +145,27 @@ private enum FloatArrayToBase64 {
         }
         return decodedFloats
     }
+
+    static func decode(fromBase64String string: String) -> [Float]? {
+        if let data = Data(base64Encoded: string) {
+            return decode(fromData: data)
+        }
+        return nil
+    }
 }
 
-private enum Float16ArrayToBase64 {
+private enum Float16ArrayToData {
     // Convert to little endian
-    static func encode(_ floats: [Float]) -> String {
+    static func encode(_ floats: [Float]) -> Data {
         var bytes: [UInt8] = []
         for float in floats {
             var leFloat: UInt16 = Float16(float).bitPattern.littleEndian
             withUnsafeBytes(of: &leFloat) { bytes.append(contentsOf: $0) }
         }
-        let data = Data(bytes)
-        let base64String = data.base64EncodedString()
-        return base64String
+        return Data(bytes)
     }
 
-    static func decode(fromBase64String string: String) -> [Float]? {
-        guard let data = Data(base64Encoded: string) else {
-            return nil
-        }
+    static func decode(fromData data: Data) -> [Float]? {
         var decodedFloats: [Float] = []
         let count = data.count / MemoryLayout<UInt16>.size
 
@@ -163,6 +177,13 @@ private enum Float16ArrayToBase64 {
             }
         }
         return decodedFloats
+    }
+
+    static func decode(fromBase64String string: String) -> [Float]? {
+        if let data = Data(base64Encoded: string) {
+            return decode(fromData: data)
+        }
+        return nil
     }
 }
 
@@ -180,13 +201,13 @@ extension Embedding {
 
         if container.contains(.vectorsHalfPrecision) {
             let vectorsBase64 = try container.decode(String.self, forKey: .vectorsHalfPrecision)
-            guard let vectors = Float16ArrayToBase64.decode(fromBase64String: vectorsBase64) else {
+            guard let vectors = Float16ArrayToData.decode(fromBase64String: vectorsBase64) else {
                 throw DecodingError.dataCorruptedError(forKey: .vectors, in: container, debugDescription: "Could not decode vectors")
             }
             self.init(vectors: vectors, provider: provider, halfPrecision: true)
         } else {
             let vectorsBase64 = try container.decode(String.self, forKey: .vectors)
-            guard let vectors = FloatArrayToBase64.decode(fromBase64String: vectorsBase64) else {
+            guard let vectors = FloatArrayToData.decode(fromBase64String: vectorsBase64) else {
                 throw DecodingError.dataCorruptedError(forKey: .vectors, in: container, debugDescription: "Could not decode vectors")
             }
             self.init(vectors: vectors, provider: provider, halfPrecision: false)
@@ -196,12 +217,18 @@ extension Embedding {
     public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         if halfPrecision {
-            let vectorsBase64 = Float16ArrayToBase64.encode(vectors)
+            let vectorsBase64 = Float16ArrayToData.encode(vectors).asBase64String
             try container.encode(vectorsBase64, forKey: .vectorsHalfPrecision)
         } else {
-            let vectorsBase64 = FloatArrayToBase64.encode(vectors)
+            let vectorsBase64 = FloatArrayToData.encode(vectors).asBase64String
             try container.encode(vectorsBase64, forKey: .vectors)
         }
         try container.encode(provider, forKey: .provider)
+    }
+}
+
+extension Data {
+    var asBase64String: String {
+        .init(data: base64EncodedData(), encoding: .utf8)!
     }
 }
