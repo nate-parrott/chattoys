@@ -20,10 +20,10 @@ public struct GoogleSearchEngine: WebSearchEngine {
             throw SearchError.invalidHTML
         }
         let baseURL = response.url ?? urlComponents.url!
-        return try extract(html: html, baseURL: baseURL)
+        return try extract(html: html, baseURL: baseURL, query: query)
     }
 
-    private func extract(html: String, baseURL: URL) throws -> WebSearchResponse {
+    private func extract(html: String, baseURL: URL, query: String) throws -> WebSearchResponse {
         let doc = try SwiftSoup.parse(html, baseURL.absoluteString)
         guard let main = try doc.select("#main").first() else {
             throw SearchError.missingMainElement
@@ -65,7 +65,7 @@ public struct GoogleSearchEngine: WebSearchEngine {
 //            infoBox = feedbackBox
 //        }
 
-        return .init(results: results, infoBox: infoBox)
+        return .init(query: query, results: results, infoBox: infoBox)
     }
 
     enum SearchError: Error {
@@ -103,15 +103,15 @@ private extension Element {
         }
 
         let snippet: String? = { () -> String? in
-            guard let parent3 = self.parent()?.parent()?.parent() else { return nil }
+            guard let farParent = self.nthParent(5) else { return nil }
             // First, look for an element with `div[style='-webkit-line-clamp:2']`
-            if let div = try? parent3.select("div[style='-webkit-line-clamp:2']").first(),
+            if let div = try? farParent.select("div[style='-webkit-line-clamp:2']").first(),
                let text = try? div.text().nilIfEmptyOrJustWhitespace {
                 return text
             }
 
             // If not, iterate backwards through child divs (except the first one) and look for one with a non-empty `<span>`
-            let divChildren = Array(parent3.children().filter { $0.tagName() == "div" }.dropFirst())
+            let divChildren = Array(farParent.children().filter { $0.tagName() == "div" }.dropFirst())
             for div in divChildren.reversed() {
                 if let span = try? div.select("span").first(), let text = try? span.text().nilIfEmptyOrJustWhitespace {
                     return text

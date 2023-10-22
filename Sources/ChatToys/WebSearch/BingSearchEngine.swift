@@ -26,7 +26,7 @@ public struct BingSearchEngine: WebSearchEngine {
         let results: [WebSearchResult] = response.webPages?.value.map { WebSearchResult(url: $0.url, title: $0.name, snippet: $0.snippet) } ?? []
 
         // TODO: Add info box from response
-        return .init(results: results, infoBox: nil)
+        return .init(query: query, results: results, infoBox: nil)
     }
 }
 

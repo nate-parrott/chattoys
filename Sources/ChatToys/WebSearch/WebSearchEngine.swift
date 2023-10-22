@@ -1,6 +1,7 @@
 import Foundation
 
 public struct WebSearchResponse: Equatable, Codable {
+    public var query: String
     public var results: [WebSearchResult]
     public var infoBox: String?
 }
