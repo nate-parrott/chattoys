@@ -4,6 +4,12 @@ public struct WebSearchResponse: Equatable, Codable {
     public var query: String
     public var results: [WebSearchResult]
     public var infoBox: String?
+
+    public init(query: String, results: [WebSearchResult], infoBox: String? = nil) {
+        self.query = query
+        self.results = results
+        self.infoBox = infoBox
+    }
 }
 
 public struct WebSearchResult: Equatable, Codable, Identifiable {

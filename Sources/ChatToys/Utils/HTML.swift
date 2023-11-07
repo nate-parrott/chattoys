@@ -28,12 +28,12 @@ public class HTMLProcessor {
     }
 
     public func simplify(truncateTextNodes: Int?) throws {
-        // find <script type="application/ld+json"> and paste text at front of body in a <p>
-        for el in try document.select("script[type='application/ld+json']") {
-            if let text = try? el.html().nilIfEmpty {
-                try body.prepend("<p></p>").children().first()?.text(text)
-            }
-        }
+//        // find <script type="application/ld+json"> and paste text at front of body in a <p>
+//        for el in try document.select("script[type='application/ld+json']") {
+//            if let text = try? el.html().nilIfEmpty {
+//                try body.prepend("<p></p>").children().first()?.text(text)
+//            }
+//        }
 
         // The markup inside noscript is parsed as text.
         // We want to treat it as real HTML.
