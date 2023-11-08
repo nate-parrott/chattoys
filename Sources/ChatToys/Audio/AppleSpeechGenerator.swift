@@ -4,7 +4,9 @@ public actor AppleSpeechGenerator: NSObject, SpeechGenerator {
     private lazy var synthesizer: AVSpeechSynthesizer = {
         let synthesizer = AVSpeechSynthesizer()
         synthesizer.delegate = self
+        #if os(iOS)
         synthesizer.usesApplicationAudioSession = false
+        #endif
         return synthesizer
     }()
 
@@ -57,12 +59,14 @@ public actor AppleSpeechGenerator: NSObject, SpeechGenerator {
         didSet {
             if speaking != oldValue {
                 do {
+                    #if os(iOS)
                     if speaking {
                         try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
                         try AVAudioSession.sharedInstance().setActive(true)
                     } else {
                         try AVAudioSession.sharedInstance().setActive(false)
                     }
+                    #endif
                 } catch {
                     print("[VoiceQueue] Failed to update audio session with error \(error)")
                 }

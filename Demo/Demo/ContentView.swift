@@ -7,6 +7,7 @@ enum Screen: CaseIterable, Identifiable, Hashable {
     case scraping
     case semanticSearch
     case functionCalling
+    case textToSpeech
     case settings
 
     var id: Self { self }
@@ -46,6 +47,12 @@ struct ContentView: View {
                     Label("Scraping", systemImage: "text.magnifyingglass")
                 }
                 .tag(Screen.scraping)
+
+            TextToSpeechDemo()
+                .tabItem {
+                    Label("TTS", systemImage: "speaker.wave.2")
+                }
+                .tag(Screen.textToSpeech)
                 
             SettingsView()
                 .tabItem {

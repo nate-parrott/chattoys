@@ -18,6 +18,7 @@
 		5F67968A2AAA7472000D3698 /* SemanticSearchDemo.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F6796892AAA7472000D3698 /* SemanticSearchDemo.swift */; };
 		5F67968D2AAA74F8000D3698 /* Scripting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F67968C2AAA74F8000D3698 /* Scripting.swift */; };
 		5F67968F2AAA7780000D3698 /* URL.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F67968E2AAA7780000D3698 /* URL.swift */; };
+		5FCDD49B2AFB0A4600A1BEC0 /* Speech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FCDD49A2AFB0A4600A1BEC0 /* Speech.swift */; };
 		5FD74ABB2AC12EC70087E27A /* FunctionCalling.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FD74ABA2AC12EC70087E27A /* FunctionCalling.swift */; };
 		5FDBD3A12A2A8801005C8D14 /* Scraper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5FDBD3A02A2A8801005C8D14 /* Scraper.swift */; };
 /* End PBXBuildFile section */
@@ -36,6 +37,7 @@
 		5F6796892AAA7472000D3698 /* SemanticSearchDemo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SemanticSearchDemo.swift; sourceTree = "<group>"; };
 		5F67968C2AAA74F8000D3698 /* Scripting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scripting.swift; sourceTree = "<group>"; };
 		5F67968E2AAA7780000D3698 /* URL.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = URL.swift; sourceTree = "<group>"; };
+		5FCDD49A2AFB0A4600A1BEC0 /* Speech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Speech.swift; sourceTree = "<group>"; };
 		5FD74ABA2AC12EC70087E27A /* FunctionCalling.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FunctionCalling.swift; sourceTree = "<group>"; };
 		5FDBD3A02A2A8801005C8D14 /* Scraper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Scraper.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -78,6 +80,7 @@
 				5F6796892AAA7472000D3698 /* SemanticSearchDemo.swift */,
 				5F23C39A2A27BA7F00B35927 /* Chat.swift */,
 				5F23C3982A27BA6E00B35927 /* Settings.swift */,
+				5FCDD49A2AFB0A4600A1BEC0 /* Speech.swift */,
 				5F5314D92A1EA8DE00B1653B /* ContentView.swift */,
 				5FD74ABA2AC12EC70087E27A /* FunctionCalling.swift */,
 				5FDBD3A02A2A8801005C8D14 /* Scraper.swift */,
@@ -207,6 +210,7 @@
 				5F67968D2AAA74F8000D3698 /* Scripting.swift in Sources */,
 				5F23C3992A27BA6E00B35927 /* Settings.swift in Sources */,
 				5F4E64A32A5C8738008EE886 /* Search.swift in Sources */,
+				5FCDD49B2AFB0A4600A1BEC0 /* Speech.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
