@@ -206,12 +206,12 @@ public class HTMLProcessor {
     private var longToShortURLs: [URL: String] = [:]
     private var shortURLCountsForDomains = [String: Int]()
 
-    public func shortenURLs() throws {
+    public func shortenURLs(prefix: String? = nil) throws {
         // For hrefs and img srcs, shorten URLs
         for el in try body.select("a, img") {
             if let href = try? el.attr("href").nilIfEmpty {
                 if let url = URL(string: href, relativeTo: baseURL) {
-                    try el.attr("href", shortenURL(url))
+                    try el.attr("href", shortenURL(url, prefix: prefix))
                 }
             }
             if let src = try? el.attr("src").nilIfEmpty {
@@ -222,13 +222,13 @@ public class HTMLProcessor {
         }
     }
 
-    private func shortenURL(_ url: URL) -> String {
+    private func shortenURL(_ url: URL, prefix: String? = nil) -> String {
         if let short = longToShortURLs[url] {
             return short
         } else if var host = url.host {
             host = host.withoutPrefix("www.")
             let count = shortURLCountsForDomains[host, default: 0] + 1
-            let short = "\(host)/\(count)"
+            let short = prefix != nil ? "\(host)/\(prefix!)/\(count)" : "\(host)/\(count)"
             shortURLCountsForDomains[host] = count
             longToShortURLs[url] = short
             shortToLongURLs[short] = url
@@ -267,6 +267,20 @@ public class HTMLProcessor {
 extension String {
     var collapseWhitespace: String {
         components(separatedBy: .whitespacesAndNewlines).filter({ $0.count > 0 }).joined(separator: " ")
+    }
+    
+    var collapseWhitespaceWithoutTrimming: String {
+        var results = [String]()
+        var lastCompWasEmpty = false
+        for comp in components(separatedBy: .whitespacesAndNewlines) {
+            if comp == "" && !lastCompWasEmpty {
+                results.append("")
+            } else if comp != "" {
+                results.append(comp)
+            }
+            lastCompWasEmpty = comp == ""
+        }
+        return results.joined(separator: " ")
     }
 
     public func simplifyHTML(baseURL: URL?, truncateTextNodes: Int?, contentOnly: Bool = false) -> String? {

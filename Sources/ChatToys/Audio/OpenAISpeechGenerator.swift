@@ -2,13 +2,37 @@ import Foundation
 import AVFoundation
 
 public actor OpenAISpeechGenerator: SpeechGenerator {
+    public struct Options {
+        public var voice: Voice = .alloy
+        public var speed: Double = 1.0 /* 0.25 to 4 */
+
+        public init(voice: Voice = .alloy, speed: Double = 1.0) {
+            self.voice = voice
+            self.speed = speed
+        }
+    }
+
+    public enum Voice: String, Equatable, CaseIterable {
+        case alloy
+        case echo
+        case fable
+        case onyx
+        case nova
+        case shimmer
+    }
+
     private let credentials: OpenAICredentials
-    let speed: Double
+
+    public var options: Options
     let queuePlayer = AVQueuePlayer()
 
-    public init(credentials: OpenAICredentials, speed: Double = 1.0 /* 0.25 to 4 */) {
+    public init(credentials: OpenAICredentials, options: Options = .init()) {
         self.credentials = credentials
-        self.speed = speed
+        self.options = options
+    }
+
+    public func update(options: Options) {
+        self.options = options
     }
 
     //  MARK: - SpeechGenerator
@@ -58,7 +82,7 @@ public actor OpenAISpeechGenerator: SpeechGenerator {
                 var response_format: String = "mp3"
                 var speed: Double
             }
-            let requestObject = Request(input: text, speed: speed)
+            let requestObject = Request(input: text, voice: options.voice.rawValue, speed: options.speed)
             request.httpBody = try JSONEncoder().encode(requestObject)
 
             let data = try await URLSession.shared.data(for: request).0
