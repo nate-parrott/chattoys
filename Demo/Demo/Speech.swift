@@ -19,7 +19,7 @@ enum TTSModel: String {
         case .openai:
             let key = UserDefaults.standard.string(forKey: "key") ?? ""
             let orgId = UserDefaults.standard.string(forKey: "orgId") ?? ""
-            return OpenAISpeechGenerator(credentials: .init(apiKey: key, orgId: orgId), speed: 1.4)
+            return OpenAISpeechGenerator(credentials: .init(apiKey: key, orgId: orgId))
         }
     }
 }

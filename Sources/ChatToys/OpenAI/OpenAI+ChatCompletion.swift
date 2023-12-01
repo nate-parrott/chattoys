@@ -1,12 +1,37 @@
 import Foundation
 
 public struct ChatGPT {
-    public enum Model: String, Codable {
-        case gpt35_turbo = "gpt-3.5-turbo"
-        case gpt35_turbo_16k = "gpt-3.5-turbo-16k"
-        case gpt4 = "gpt-4"
-        case gpt4_32k = "gpt-4-32k"
-        case gpt_35_ft_tabOrg = "ft:gpt-3.5-turbo-0613:the-browser-company::7r6Y87Hk" // do not commit
+    public enum Model: Equatable, Codable {
+        case gpt35_turbo
+        case gpt35_turbo_16k
+        case gpt4
+        case gpt4_32k
+        case custom(String, Int)
+
+        var name: String {
+            switch self {
+            case .gpt35_turbo:
+                return "gpt-3.5-turbo"
+            case .gpt35_turbo_16k:
+                return "gpt-3.5-turbo-16k"
+            case .custom(let string, _):
+                return string
+            case .gpt4:
+                return "gpt-4"
+            case .gpt4_32k:
+                return "gpt-4-32k"
+            }
+        }
+
+        var tokenLimit: Int {
+            switch self {
+            case .gpt35_turbo: return 4096
+            case .gpt35_turbo_16k: return 16384
+            case .gpt4: return 8192
+            case .gpt4_32k: return 32768
+            case .custom(_, let limit): return limit
+            }
+        }
     }
 
     public struct Options: Equatable, Codable {
@@ -78,17 +103,12 @@ extension ChatGPT: ChatLLM {
         var choices: [Choice]
     }
 
-    public var tokenLimit: Int {
-        switch options.model {
-        case .gpt35_turbo, .gpt_35_ft_tabOrg: return 4096
-        case .gpt35_turbo_16k: return 16384
-        case .gpt4: return 8192
-        case .gpt4_32k: return 32768
-        }
-    }
-
     public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
         _completeStreaming(prompt: prompt, functions: [])
+    }
+
+    public var tokenLimit: Int {
+        options.model.tokenLimit
     }
 
     func _completeStreaming(prompt: [LLMMessage], functions: [LLMFunction]) -> AsyncThrowingStream<LLMMessage, Error> {
@@ -166,7 +186,7 @@ extension ChatGPT: ChatLLM {
 
     // don't pass functions AND stream
     private func createChatRequest(prompt: [LLMMessage], functions: [LLMFunction], stream: Bool) -> URLRequest {
-        let cr = ChatCompletionRequest(messages: prompt.map { $0.asChatGPT }, model: options.model.rawValue, temperature: options.temperature, stream: stream, stop: options.stop.nilIfEmptyArray, functions: functions.nilIfEmptyArray)
+        let cr = ChatCompletionRequest(messages: prompt.map { $0.asChatGPT }, model: options.model.name, temperature: options.temperature, stream: stream, stop: options.stop.nilIfEmptyArray, functions: functions.nilIfEmptyArray)
 
        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
        var request = URLRequest(url: url)
@@ -276,9 +296,9 @@ extension ChatGPT.Model {
         switch self {
         case .gpt35_turbo: return (0.15, 0.2)
         case .gpt35_turbo_16k: return (0.3, 0.4)
-        case .gpt_35_ft_tabOrg: return (1.2, 1.6)
         case .gpt4: return (3, 6)
         case .gpt4_32k: return (6, 12)
+        case .custom: return (0, 0)
         }
     }
 }

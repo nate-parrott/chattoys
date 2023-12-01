@@ -63,11 +63,19 @@ public class FastHTMLProcessor {
             return ""
         }
         var doc = MarkdownDoc()
-        traverse(element: body, doc: &doc, score: .normal, urlMode: urlMode)
+        let mainEl: Fuzi.XMLElement = {
+            for sel in ["article", "main", "#content", "[itemprop='mainEntity']"] {
+                if let el = body.firstChild(css: sel) {
+                    return el
+                }
+            }
+            return body
+        }()
+        traverse(element: mainEl, doc: &doc, score: .normal, urlMode: urlMode)
         return doc.asMarkdown
     }
 
-    private func traverse(element: XMLElement, doc: inout MarkdownDoc, score parentScore: Score, urlMode: URLMode) {
+    private func traverse(element: Fuzi.XMLElement, doc: inout MarkdownDoc, score parentScore: Score, urlMode: URLMode) {
         guard var score = self.score(element: element) else {
             return // skipped
         }
@@ -78,9 +86,9 @@ public class FastHTMLProcessor {
 
         // Handle images:
         if tagLower == "img" {
-            if let alt = element.attr("alt"), let src = element.attr("src") {
+            if let alt = element.attr("alt")?.nilIfEmpty, let src = element.attr("src")?.nilIfEmpty {
                 doc.startNewLine(with: score)
-                doc.appendInline(text: "[\(alt.collapseWhitespace)]", with: score)
+                doc.appendInline(text: "![\(alt.collapseWhitespace)]", with: score)
                 if let urlStr = processURL(src, urlMode: urlMode) {
                     doc.appendInline(text: "(\(urlStr))", with: score)
                 }
@@ -111,7 +119,7 @@ public class FastHTMLProcessor {
                 }
                 doc.appendInline(text: String(text), with: score)
             case .Element:
-                if let el = node as? XMLElement {
+                if let el = node as? Fuzi.XMLElement {
                     traverse(element: el, doc: &doc, score: score, urlMode: urlMode)
                 }
             default: ()
@@ -129,6 +137,9 @@ public class FastHTMLProcessor {
     }
 
     private func processURL(_ raw: String, urlMode: URLMode) -> String? {
+        if let url = URL(string: raw, relativeTo: baseURL), !["http", "https"].contains(url.scheme ?? "") {
+            return nil
+        }
         switch urlMode {
         case .keep: return raw
         case .omit: return nil
@@ -142,7 +153,7 @@ public class FastHTMLProcessor {
     }
 
     // if nil, skip
-    private func score(element: XMLElement) -> Score? {
+    private func score(element: Fuzi.XMLElement) -> Score? {
         let tag = element.tag
         if tagsToSkip.contains(tag ?? "") {
             return nil

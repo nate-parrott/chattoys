@@ -7,6 +7,7 @@ enum LLM: String, Equatable, Codable, CaseIterable {
     case gpt4
     case claude
     case llama
+    case perplexityOnline7b
 
     static func createFunctionCalling() -> (any FunctionCallingLLM)? {
         let llm: LLM = .init(rawValue: UserDefaults.standard.string(forKey: "llm") ?? "") ?? .chatGPT
@@ -19,7 +20,7 @@ enum LLM: String, Equatable, Codable, CaseIterable {
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: model, printToConsole: true, printCost: false))
         case .gpt4:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
-        case .claude, .llama:
+        case .claude, .llama, .perplexityOnline7b:
             return nil
         }
     }
@@ -39,6 +40,8 @@ enum LLM: String, Equatable, Codable, CaseIterable {
             return Claude(credentials: AnthropicCredentials(apiKey: key), options: .init(model: .claudeInstant1, printToConsole: true))
         case .llama:
             return LlamaCPP(modelName: llamaModel, tokenLimit: 512)
+        case .perplexityOnline7b:
+            return PerplexityLLM(credentials: .init(apiKey: key), options: .init(model: .pplx7bOnline))
         }
     }
 }
