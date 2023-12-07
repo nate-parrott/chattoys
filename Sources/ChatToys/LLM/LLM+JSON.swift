@@ -37,7 +37,7 @@ extension ChatLLM {
             Task {
                 do {
                     var lastText = ""
-                    for try await partial in self.completeStreaming(prompt: prompt) {
+                    for try await partial in self.completeStreamingWithJsonHint(prompt: prompt) {
                         lastText = partial.content.byExtractingOnlyCodeBlocks.removing(prefix: "json")
 
                         var textToParse = lastText
@@ -49,6 +49,7 @@ extension ChatLLM {
 //                            break
                         }
                     }
+                    print(lastText)
                     let json = try JSONDecoder().decode(T.self, from: lastText.capJson.data(using: .utf8)!)
                     cont.yield(json)
                     cont.finish()

@@ -1,5 +1,6 @@
 import Foundation
 import SwiftSoup
+import QuartzCore
 
 public struct GoogleSearchEngine: WebSearchEngine {
     public init() {
@@ -7,6 +8,7 @@ public struct GoogleSearchEngine: WebSearchEngine {
 
     // MARK: - WebSearchEngine
     public func search(query: String) async throws -> WebSearchResponse {
+        let t = CACurrentMediaTime()
         var urlComponents = URLComponents(string: "https://www.google.com/search")!
         urlComponents.queryItems = [
             URLQueryItem(name: "q", value: query),
@@ -16,11 +18,15 @@ public struct GoogleSearchEngine: WebSearchEngine {
         let chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
         request.setValue(chromeUserAgent, forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
+        print("[Timing] [GoogleSearch] Fetched at \(CACurrentMediaTime() - t)")
+        let t2 = CACurrentMediaTime()
         guard let html = String(data: data, encoding: .utf8) else {
             throw SearchError.invalidHTML
         }
         let baseURL = response.url ?? urlComponents.url!
-        return try extract(html: html, baseURL: baseURL, query: query)
+        let extracted = try extract(html: html, baseURL: baseURL, query: query)
+        print("[Timing] [GoogleSearch] Parsed at \(CACurrentMediaTime() - t2)")
+        return extracted
     }
 
     private func extract(html: String, baseURL: URL, query: String) throws -> WebSearchResponse {

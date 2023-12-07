@@ -17,9 +17,9 @@ extension BingSearchEngine: ImageSearchEngine {
         let (data, _) = try await URLSession.shared.data(for: request)
 
         // Pretty-print data to the console as json
-        let json = try JSONSerialization.jsonObject(with: data, options: [])
-        let prettyData = try JSONSerialization.data(withJSONObject: json, options: .prettyPrinted)
-        print(String(data: prettyData, encoding: .utf8)!)
+//        let json = try JSONSerialization.jsonObject(with: data, options: [])
+//        let prettyData = try JSONSerialization.data(withJSONObject: json, options: .prettyPrinted)
+//        print(String(data: prettyData, encoding: .utf8)!)
 
         let response = try JSONDecoder().decode(BingAPIImageResponse.self, from: data)
         return response.value.compactMap { result in

@@ -43,13 +43,15 @@ public struct ChatGPT {
 
         // `printCost` disables streaming and prints cost to the console
         public var printCost: Bool
+        public var jsonMode: Bool
 
-        public init(temp: Double = 0.2, model: Model = .gpt35_turbo, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false) {
+        public init(temp: Double = 0.2, model: Model = .gpt35_turbo, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false) {
             self.temperature = temp
             self.model = model
             self.stop = stop
             self.printToConsole = printToConsole
             self.printCost = printCost
+            self.jsonMode = jsonMode
         }
     }
 
@@ -83,6 +85,11 @@ extension ChatGPT: ChatLLM {
        var stream = true
        var stop: [String]?
        var functions: [LLMFunction]?
+       var response_format: ResponseFormat
+
+       struct ResponseFormat: Codable {
+           var type: String  = "text"
+       }
    }
 
     private struct ChatCompletionStreamingResponse: Codable {
@@ -109,6 +116,13 @@ extension ChatGPT: ChatLLM {
 
     public var tokenLimit: Int {
         options.model.tokenLimit
+    }
+
+    public func completeStreamingWithJsonHint(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
+        var model = self
+        // TODO: Re-enable auto json mode
+//        model.options.jsonMode = true
+        return model.completeStreaming(prompt: prompt)
     }
 
     func _completeStreaming(prompt: [LLMMessage], functions: [LLMFunction]) -> AsyncThrowingStream<LLMMessage, Error> {
@@ -186,7 +200,15 @@ extension ChatGPT: ChatLLM {
 
     // don't pass functions AND stream
     private func createChatRequest(prompt: [LLMMessage], functions: [LLMFunction], stream: Bool) -> URLRequest {
-        let cr = ChatCompletionRequest(messages: prompt.map { $0.asChatGPT }, model: options.model.name, temperature: options.temperature, stream: stream, stop: options.stop.nilIfEmptyArray, functions: functions.nilIfEmptyArray)
+        let cr = ChatCompletionRequest(
+            messages: prompt.map { $0.asChatGPT },
+            model: options.model.name,
+            temperature: options.temperature,
+            stream: stream,
+            stop: options.stop.nilIfEmptyArray,
+            functions: functions.nilIfEmptyArray,
+            response_format: .init(type: options.jsonMode ? "json_object" : "text")
+        )
 
        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
        var request = URLRequest(url: url)
@@ -253,6 +275,7 @@ extension ChatGPT {
     func _complete(prompt: [LLMMessage], functions: [LLMFunction] = []) async throws -> LLMMessage {
         let request = createChatRequest(prompt: prompt, functions: functions, stream: false)
         let (data, _) = try await URLSession.shared.data(for: request)
+//        print("resp: \(String(data: data, encoding: .utf8)!)")
         let response = try JSONDecoder().decode(NonStreamingResponse.self, from: data)
 
         guard let result = response.choices.first?.message else {

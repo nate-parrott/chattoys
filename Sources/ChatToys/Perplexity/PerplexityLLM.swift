@@ -71,9 +71,9 @@ public struct PerplexityLLM: ChatLLM {
                }
            }
            src.onMessage { id, event, data in
-               if let data {
-                   print("Data: \(data)")
-               }
+//               if let data {
+//                   print("Data: \(data)")
+//               }
                guard let data, data != "[DONE]" else { return }
                do {
                    let decoded = try JSONDecoder().decode(ChatCompletionStreamingResponse.self, from: Data(data.utf8))

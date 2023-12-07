@@ -159,8 +159,12 @@ private enum Float16ArrayToData {
     static func encode(_ floats: [Float]) -> Data {
         var bytes: [UInt8] = []
         for float in floats {
+            #if arch(x86_64)
+            fatalError("Float16 embeddings not supported on x86")
+            #else
             var leFloat: UInt16 = Float16(float).bitPattern.littleEndian
             withUnsafeBytes(of: &leFloat) { bytes.append(contentsOf: $0) }
+            #endif
         }
         return Data(bytes)
     }
@@ -171,9 +175,13 @@ private enum Float16ArrayToData {
 
         data.withUnsafeBytes { ptr in
             for i in 0..<count {
+                #if arch(x86_64)
+                fatalError("Float16 embeddings not supported on x86")
+                #else
                 let start = i * MemoryLayout<UInt16>.size
                 let leBits = UInt16(littleEndian: ptr.load(fromByteOffset: start, as: UInt16.self))
                 decodedFloats.append(Float(Float16(bitPattern: leBits)))
+                #endif
             }
         }
         return decodedFloats

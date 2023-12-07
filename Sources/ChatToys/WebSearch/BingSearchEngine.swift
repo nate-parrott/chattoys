@@ -53,8 +53,8 @@ struct BingAPIResponse: Codable {
         }
 
         struct EntityPresentationInfo: Codable {
-            var entityScenario: String
-            var entityTypeHints: [String]
+            var entityScenario: String?
+            var entityTypeHints: [String]?
         }
 
         var entityPresentationInfo: EntityPresentationInfo?
@@ -62,7 +62,7 @@ struct BingAPIResponse: Codable {
         // var webSearchUrl: String
         var id: String
         var telephone: String?
-        var name: String
+        var name: String?
         var url: URL?
     }
 

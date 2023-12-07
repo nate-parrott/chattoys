@@ -33,12 +33,20 @@ public struct LLMMessage: Equatable, Codable {
 public protocol ChatLLM {
     func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error>
     var tokenLimit: Int { get } // aka context size
+
+    // If the LLM supports specific JSON conditioning, this should invoke it. Default impl calls `completeStreaming` normally
+    func completeStreamingWithJsonHint(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error>
 }
 
 public extension ChatLLM {
     // We can't currently run the real tokenizer on device, so token counts are estimates. You should leave a little 'wiggle room'
     var tokenLimitWithWiggleRoom: Int {
         max(1, Int(round(Double(tokenLimit) * 0.85)) - 50)
+    }
+
+    // default implementation, can be overriden
+    func completeStreamingWithJsonHint(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
+        completeStreaming(prompt: prompt)
     }
 
     func complete(prompt: [LLMMessage]) async throws -> LLMMessage {
