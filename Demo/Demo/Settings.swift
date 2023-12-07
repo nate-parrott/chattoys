@@ -59,6 +59,7 @@ struct SettingsView: View {
     @AppStorage("key") private var key = ""
     @AppStorage("orgId") private var orgId = ""
     @AppStorage("llamaModel") private var llamaModel = ""
+    @AppStorage("bingKey") private var bingKey = ""
 
     var body: some View {
         Form {
@@ -71,6 +72,7 @@ struct SettingsView: View {
                         Text($0.rawValue)
                     }
                 }.pickerStyle(.segmented)
+                TextField("Bing key", text: $bingKey)
             }
         }
         .formStyle(.grouped)
