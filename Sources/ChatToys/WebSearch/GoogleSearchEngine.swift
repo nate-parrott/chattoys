@@ -8,29 +8,32 @@ public struct GoogleSearchEngine: WebSearchEngine {
 
     // MARK: - WebSearchEngine
     public func search(query: String) async throws -> WebSearchResponse {
-        let t = CACurrentMediaTime()
+//        let t = CACurrentMediaTime()
         var urlComponents = URLComponents(string: "https://www.google.com/search")!
         urlComponents.queryItems = [
             URLQueryItem(name: "q", value: query),
+//            URLQueryItem(name: "gbv", value: "1"), // google basic version = 1 (no js)
         ]
         var request = URLRequest(url: urlComponents.url!)
+        request.httpShouldHandleCookies = false
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         let chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+//        let iosUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1"
         request.setValue(chromeUserAgent, forHTTPHeaderField: "User-Agent")
         let (data, response) = try await URLSession.shared.data(for: request)
-        print("[Timing] [GoogleSearch] Fetched at \(CACurrentMediaTime() - t)")
-        let t2 = CACurrentMediaTime()
         guard let html = String(data: data, encoding: .utf8) else {
             throw SearchError.invalidHTML
         }
         let baseURL = response.url ?? urlComponents.url!
         let extracted = try extract(html: html, baseURL: baseURL, query: query)
-        print("[Timing] [GoogleSearch] Parsed at \(CACurrentMediaTime() - t2)")
+//        print("[Timing] [GoogleSearch] Parsed at \(CACurrentMediaTime() - t2)")
         return extracted
     }
 
     private func extract(html: String, baseURL: URL, query: String) throws -> WebSearchResponse {
         let doc = try SwiftSoup.parse(html, baseURL.absoluteString)
+        
+
         guard let main = try doc.select("#main").first() else {
             throw SearchError.missingMainElement
         }

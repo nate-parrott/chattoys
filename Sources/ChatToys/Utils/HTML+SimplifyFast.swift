@@ -2,7 +2,7 @@ import Foundation
 import Fuzi
 
 public class FastHTMLProcessor {
-    public enum URLMode {
+    public enum URLMode: Equatable {
         case omit
         case shorten(prefix: String?)
         case keep
@@ -97,7 +97,10 @@ public class FastHTMLProcessor {
             return
         }
 
-        let rule: Rule? = markdownRules[tagLower]
+        var rule: Rule? = markdownRules[tagLower]
+        if tagLower == "a" && urlMode == .omit {
+            rule = nil
+        }
         if let rule, !rule.inline {
             doc.startNewLine(with: score)
         }
@@ -166,7 +169,16 @@ public class FastHTMLProcessor {
         if droppedAriaRoles.contains(role ?? "") {
             return nil
         }
-        if tag == "article" || tag == "main" || element.attr("itemprop") == "mainEntity" || element.attr("id") == "content" || element.attr("class") == "reviews-content" {
+        let classes = element.attr("class")?.split(separator: " ") ?? []
+        if classes.contains("nomobile") {
+            // For wikipedia
+            return nil
+        }
+        let style = element.attr("style") ?? ""
+        if style.contains("display: none") || style.contains("display:none") {
+            return nil
+        }
+        if tag == "article" || tag == "main" || element.attr("itemprop") == "mainEntity" || element.attr("id") == "content" || classes.contains("reviews-content") {
             return .best
         }
         return .normal
@@ -214,9 +226,9 @@ public class FastHTMLProcessor {
             "code": Rule(inline: true, prefix: "`", suffix: "`"),
             "pre": Rule(inline: false),
             "hr": Rule(inline: false, suffix: "----"),
-            "caption": Rule(inline: false, suffix: "----"),
-            "tr": Rule(inline: false, prefix: "| "),
-            "td": Rule(inline: true, suffix: " |"),
+            "caption": Rule(inline: false),
+//            "tr": Rule(inline: false, prefix: "| "),
+//            "td": Rule(inline: true, suffix: " |"),
             "div": Rule(inline: false),
         ]
         return rules
