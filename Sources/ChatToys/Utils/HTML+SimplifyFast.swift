@@ -63,15 +63,18 @@ public class FastHTMLProcessor {
             return ""
         }
         var doc = MarkdownDoc()
-        let mainEl: Fuzi.XMLElement = {
+        let mainElements: [Fuzi.XMLElement] = {
             for sel in ["article", "main", "#content", "[itemprop='mainEntity']"] {
-                if let el = body.firstChild(css: sel) {
-                    return el
+                let matches = body.css(sel)
+                if matches.count > 0 {
+                    return Array(matches)
                 }
             }
-            return body
+            return [body]
         }()
-        traverse(element: mainEl, doc: &doc, score: .normal, urlMode: urlMode)
+        for el in mainElements {
+            traverse(element: el, doc: &doc, score: .normal, urlMode: urlMode)
+        }
         return doc.asMarkdown
     }
 

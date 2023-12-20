@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5F11D47E2B336C4B0089C6FC /* HTMLToMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F11D47D2B336C4B0089C6FC /* HTMLToMarkdown.swift */; };
 		5F23C3992A27BA6E00B35927 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F23C3982A27BA6E00B35927 /* Settings.swift */; };
 		5F23C39B2A27BA7F00B35927 /* Chat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F23C39A2A27BA7F00B35927 /* Chat.swift */; };
 		5F4E64A32A5C8738008EE886 /* Search.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F4E64A22A5C8738008EE886 /* Search.swift */; };
@@ -24,6 +25,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5F11D47D2B336C4B0089C6FC /* HTMLToMarkdown.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HTMLToMarkdown.swift; sourceTree = "<group>"; };
 		5F23C3982A27BA6E00B35927 /* Settings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		5F23C39A2A27BA7F00B35927 /* Chat.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Chat.swift; sourceTree = "<group>"; };
 		5F4E64A22A5C8738008EE886 /* Search.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Search.swift; sourceTree = "<group>"; };
@@ -81,6 +83,7 @@
 				5F23C39A2A27BA7F00B35927 /* Chat.swift */,
 				5F23C3982A27BA6E00B35927 /* Settings.swift */,
 				5FCDD49A2AFB0A4600A1BEC0 /* Speech.swift */,
+				5F11D47D2B336C4B0089C6FC /* HTMLToMarkdown.swift */,
 				5F5314D92A1EA8DE00B1653B /* ContentView.swift */,
 				5FD74ABA2AC12EC70087E27A /* FunctionCalling.swift */,
 				5FDBD3A02A2A8801005C8D14 /* Scraper.swift */,
@@ -202,6 +205,7 @@
 			files = (
 				5F5314DA2A1EA8DE00B1653B /* ContentView.swift in Sources */,
 				5F23C39B2A27BA7F00B35927 /* Chat.swift in Sources */,
+				5F11D47E2B336C4B0089C6FC /* HTMLToMarkdown.swift in Sources */,
 				5FD74ABB2AC12EC70087E27A /* FunctionCalling.swift in Sources */,
 				5F67968F2AAA7780000D3698 /* URL.swift in Sources */,
 				5F5314D82A1EA8DE00B1653B /* DemoApp.swift in Sources */,

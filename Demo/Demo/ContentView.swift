@@ -9,6 +9,7 @@ enum Screen: CaseIterable, Identifiable, Hashable {
     case functionCalling
     case textToSpeech
     case settings
+    case markdown
 
     var id: Self { self }
 }
@@ -28,6 +29,12 @@ struct ContentView: View {
                     Label("Search", systemImage: "magnifyingglass")
                 }
                 .tag(Screen.search)
+
+            HTMLToMarkdownDemo()
+                .tabItem {
+                    Label("Markdown", systemImage: "ellipsis.curlybraces")
+                }
+                .tag(Screen.markdown)
 
             SemanticSearchDemo()
                 .tabItem {
