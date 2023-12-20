@@ -20,6 +20,13 @@ public struct LLMMessage: Equatable, Codable {
         public var argumentsJson: Any? {
             try? JSONSerialization.jsonObject(with: arguments.data(using: .utf8)!)
         }
+
+        public func argument<T>(name: String, type: T.Type) -> T? {
+            if let params = argumentsJson as? [String: Any], let val = params[name] as? T {
+                return val
+            }
+            return nil
+        }
     }
 
     public init(role: Role, content: String, functionCall: FunctionCall? = nil, nameOfFunctionThatProduced: String? = nil) {

@@ -2,7 +2,7 @@ import Foundation
 import Fuzi
 
 public class FastHTMLProcessor {
-    public enum URLMode: Equatable {
+    public enum URLMode: Equatable, Codable {
         case omit
         case shorten(prefix: String?)
         case keep
@@ -144,12 +144,14 @@ public class FastHTMLProcessor {
             return nil
         }
         switch urlMode {
-        case .keep: return raw
-        case .omit: return nil
-        case .truncate(let limit): return raw.truncateTail(maxLen: limit)
         case .shorten(let prefix):
             if let url = URL(string: raw, relativeTo: baseURL) {
                 return shortenURL(url, prefix: prefix)
+            }
+            return nil
+        case .keep, .omit, .truncate:
+            if let url = URL(string: raw, relativeTo: baseURL) {
+                return urlMode.process(url: url)
             }
             return nil
         }
@@ -253,6 +255,17 @@ public class FastHTMLProcessor {
             return short
         } else {
             return url.absoluteString
+        }
+    }
+}
+
+extension FastHTMLProcessor.URLMode {
+    func process(url: URL) -> String? {
+        switch self {
+        case .keep: return url.absoluteString
+        case .omit: return nil
+        case .truncate(let limit): return url.absoluteString.truncateTail(maxLen: limit)
+        case .shorten: fatalError("Can't shorten HTMLs with this API")
         }
     }
 }

@@ -9,17 +9,20 @@ public struct Prompt: Equatable {
     }
 
     // By default, priority increases with index
-    public mutating func append(_ text: String, role: LLMMessage.Role, priority: Double? = nil, canTruncateToLength: Int? = nil, canOmit: Bool = false, omissionMessage: String? = nil, trim: Bool = true) {
+    public mutating func append(_ text: String, role: LLMMessage.Role, priority: Double? = nil, canTruncateToLength: Int? = nil, canOmit: Bool = false, omissionMessage: String? = nil, trim: Bool = true, functionCall: LLMMessage.FunctionCall? = nil, nameOfFunctionThatProduced: String? = nil) {
         let priority = priority ?? Double(parts.count)
         let textFinal = trim ? text.trimmed.dropCommentedLines : text
         parts.append(Part(
             id: UUID().uuidString,
             text: textFinal,
             role: role,
-            priority: priority, 
+            inResponseToFunctionName: nameOfFunctionThatProduced,
+            functionCall: functionCall,
+            priority: priority,
             canTruncateToLength: canTruncateToLength,
             canOmit: canOmit, 
-            omissionMessage: omissionMessage)
+            omissionMessage: omissionMessage
+        )
         )
     }
 
@@ -45,7 +48,7 @@ public struct Prompt: Equatable {
 
     public var messages: [LLMMessage] {
         parts.map { part in
-                .init(role: part.role, content: part.text)
+                .init(role: part.role, content: part.text, functionCall: part.functionCall, nameOfFunctionThatProduced: part.inResponseToFunctionName)
         }
     }
 
@@ -59,6 +62,15 @@ public struct Prompt: Equatable {
         var id: String
         var text: String
         var role: LLMMessage.Role
+        
+        // for role=function
+        // TODO: Count tokens for this
+        var inResponseToFunctionName: String?
+
+        // for role=assistant
+        // TODO: Count tokens for this
+        var functionCall: LLMMessage.FunctionCall?
+
         var priority: Double
         var canTruncateToLength: Int?
         var canOmit: Bool
