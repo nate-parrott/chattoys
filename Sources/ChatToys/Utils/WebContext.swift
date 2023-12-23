@@ -58,11 +58,11 @@ public extension WebContext {
         timeout: TimeInterval,
         resultCount: Int,
         charLimit: Int,
-        urlMode: FastHTMLProcessor.URLMode = .keep,
-        skipVideos: Bool = true
+        urlMode: FastHTMLProcessor.URLMode = .keep
     ) async throws -> WebContext {
         // TODO: Rank
-        let fetchableResults = results.filter { $0.url.hostWithoutWWW != "youtube.com" || !skipVideos }
+        let blockedDomains = Set(["youtube.com", "twitter.com"])
+        let fetchableResults = results.filter { !blockedDomains.contains($0.url.hostWithoutWWW) }
 
         let pages: [Page] = await fetchableResults.prefix(resultCount).concurrentMap { result -> Page? in
 //            let idx = fetchableResults.firstIndex(of: result)!

@@ -65,7 +65,7 @@ public class FastHTMLProcessor {
 
         // Then, detect main content elements and conver them to markdown:
         let mainElements: [Fuzi.XMLElement] = {
-            for sel in ["article", "main", "#content", "[itemprop='mainEntity']"] {
+            for sel in ["article", "main", "#content", "*[itemprop='mainEntity']"] {
                 let matches = body.css(sel)
                 if matches.count > 0 {
                     return Array(matches)
@@ -95,13 +95,14 @@ public class FastHTMLProcessor {
         }
         // Then, look for items with [itemprop] attributes and prepend them like "key: value"
         for el in self.doc.css("*[itemprop]") {
-            if let key = el.attr("itemprop") {
+            // Skip main entity; handle separately in HTML processing
+            if let key = el.attr("itemprop"), key.lowercased() != "mainEntity" {
                 if var value = el.stringValue.nilIfEmptyOrJustWhitespace ?? el.attr("content")?.nilIfEmptyOrJustWhitespace {
                     if value.isURL, let processed = processURL(value, urlMode: urlMode) {
                         value = processed
                     }
                     if value.nilIfEmptyOrJustWhitespace != nil {
-                        doc.bestLines.append("\(key): \(value)")
+                        doc.bestLines.append("\(key): \(value.collapseWhitespaceWithoutTrimming.leadingSpacesTrimmed.trailingSpacesTrimmed)")
                     }
                 }
             }
