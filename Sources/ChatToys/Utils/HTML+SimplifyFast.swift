@@ -55,14 +55,15 @@ public class FastHTMLProcessor {
     }
 
     public func markdown(urlMode: URLMode) -> String {
-        // Steps:
-        // 1. Identify target content elements to move to front
-        // 2. Identify skip elements
-        // 3. Traverse tree
         guard let body = doc.body else {
             return ""
         }
         var doc = MarkdownDoc()
+
+        // First, look for special semantic JSON LD elements and move them to the front:
+        prependJsonLDData(urlMode: urlMode, toDoc: &doc)
+
+        // Then, detect main content elements and conver them to markdown:
         let mainElements: [Fuzi.XMLElement] = {
             for sel in ["article", "main", "#content", "[itemprop='mainEntity']"] {
                 let matches = body.css(sel)
@@ -76,6 +77,35 @@ public class FastHTMLProcessor {
             traverse(element: el, doc: &doc, score: .normal, urlMode: urlMode, withinInline: false)
         }
         return doc.asMarkdown
+    }
+
+    private func prependJsonLDData(urlMode: URLMode, toDoc doc: inout MarkdownDoc) {
+        // First, look for JSON in script tags:
+        for script in self.doc.css("script[type='application/ld+json']") {
+            if let text = script.stringValue.data(using: .utf8) {
+                if let json = try? JSONSerialization.jsonObject(with: text, options: []) {
+                    let processed = processAllURLs(inJson: json, urlMode: urlMode)
+                    if let encoded = try? JSONSerialization.data(withJSONObject: processed, options: []) {
+                        if let str = String(data: encoded, encoding: .utf8) {
+                            doc.bestLines.append(str)
+                        }
+                    }
+                }
+            }
+        }
+        // Then, look for items with [itemprop] attributes and prepend them like "key: value"
+        for el in self.doc.css("*[itemprop]") {
+            if let key = el.attr("itemprop") {
+                if var value = el.stringValue.nilIfEmptyOrJustWhitespace ?? el.attr("content")?.nilIfEmptyOrJustWhitespace {
+                    if value.isURL, let processed = processURL(value, urlMode: urlMode) {
+                        value = processed
+                    }
+                    if value.nilIfEmptyOrJustWhitespace != nil {
+                        doc.bestLines.append("\(key): \(value)")
+                    }
+                }
+            }
+        }
     }
 
     private func traverse(element: Fuzi.XMLElement, doc: inout MarkdownDoc, score parentScore: Score, urlMode: URLMode, withinInline: Bool) {
@@ -342,5 +372,38 @@ public extension FastHTMLProcessor {
             let processor = try! FastHTMLProcessor(url: URL(string: "https://example.com")!, data: sample.data(using: .utf8)!)
             print("MARKDOWN:\n\(processor.markdown(urlMode: .keep))")
         }
+    }
+}
+
+func processAllURLs(inJson json: Any, urlMode: FastHTMLProcessor.URLMode) -> Any {
+    if let dict = json as? [String: Any] {
+        var newDict = [String: Any]()
+        for (k, v) in dict {
+            newDict[k] = processAllURLs(inJson: v, urlMode: urlMode)
+        }
+        return newDict
+    } else if let arr = json as? [Any] {
+        return arr.map { processAllURLs(inJson: $0, urlMode: urlMode) }
+    } else if let str = json as? String {
+        if str.isURL, let url = URL(string: str) {
+            if let processed = urlMode.process(url: url) {
+                return processed
+            }
+            return ""
+        } else {
+            return str
+        }
+    } else {
+        return json
+    }
+}
+
+extension String {
+    var isURL: Bool {
+        if starts(with: "https://") || starts(with: "http://"),
+           firstIndex(where: { $0.isWhitespace }) == nil {
+            return true
+        }
+        return false
     }
 }
