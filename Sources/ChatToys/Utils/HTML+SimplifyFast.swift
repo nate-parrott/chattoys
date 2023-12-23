@@ -73,12 +73,12 @@ public class FastHTMLProcessor {
             return [body]
         }()
         for el in mainElements {
-            traverse(element: el, doc: &doc, score: .normal, urlMode: urlMode)
+            traverse(element: el, doc: &doc, score: .normal, urlMode: urlMode, withinInline: false)
         }
         return doc.asMarkdown
     }
 
-    private func traverse(element: Fuzi.XMLElement, doc: inout MarkdownDoc, score parentScore: Score, urlMode: URLMode) {
+    private func traverse(element: Fuzi.XMLElement, doc: inout MarkdownDoc, score parentScore: Score, urlMode: URLMode, withinInline: Bool) {
         guard var score = self.score(element: element) else {
             return // skipped
         }
@@ -102,9 +102,10 @@ public class FastHTMLProcessor {
 
         var rule: Rule? = markdownRules[tagLower]
         if tagLower == "a" && urlMode == .omit {
-            rule = nil
+            rule = nil // If urls are omitted, do not process `a` tags specially (but keep their inner content)
         }
-        if let rule, !rule.inline {
+        let inline = withinInline || (rule?.inline ?? false)
+        if let rule, !rule.inline, !inline {
             doc.startNewLine(with: score)
         }
         if let prefix = rule?.prefix {
@@ -126,7 +127,13 @@ public class FastHTMLProcessor {
                 doc.appendInline(text: String(text), with: score)
             case .Element:
                 if let el = node as? Fuzi.XMLElement {
-                    traverse(element: el, doc: &doc, score: score, urlMode: urlMode)
+                    traverse(
+                        element: el,
+                        doc: &doc,
+                        score: score,
+                        urlMode: urlMode,
+                        withinInline: inline
+                    )
                 }
             default: ()
             }
@@ -137,7 +144,7 @@ public class FastHTMLProcessor {
         if tagLower == "a", let href = element.attr("href"), let processed = processURL(href, urlMode: urlMode) {
             doc.appendInline(text: "(\(processed))", with: score)
         }
-        if let rule, !rule.inline {
+        if let rule, !rule.inline, !inline {
             doc.startNewLine(with: score)
         }
     }

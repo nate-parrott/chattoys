@@ -31,8 +31,18 @@ public struct WebContext: Equatable, Codable {
     }
 }
 
-public extension WebContext.Page {
-    static func fetch(forSearchResult result: WebSearchResult, timeout: TimeInterval, urlMode: FastHTMLProcessor.URLMode = .keep) async throws -> WebContext.Page {
+extension WebContext.Page {
+    public static func fetch(forSearchResult result: WebSearchResult, timeout: TimeInterval, urlMode: FastHTMLProcessor.URLMode = .keep) async throws -> WebContext.Page {
+        let domain = result.url.hostWithoutWWW
+
+        if domain == "reddit.com" {
+            return try await fetchRedditContent(forSearchResult: result, timeout: timeout, urlMode: urlMode)
+        }
+
+        return try await fetchNormally(forSearchResult: result, timeout: timeout, urlMode: urlMode)
+    }
+
+    static func fetchNormally(forSearchResult result: WebSearchResult, timeout: TimeInterval, urlMode: FastHTMLProcessor.URLMode) async throws -> WebContext.Page {
         try await withTimeout(timeout) {
             let resp = try await URLSession.shared.data(from: result.url)
             let proc = try FastHTMLProcessor(url: resp.1.url ?? result.url, data: resp.0)
@@ -55,7 +65,7 @@ public extension WebContext {
         let fetchableResults = results.filter { $0.url.hostWithoutWWW != "youtube.com" || !skipVideos }
 
         let pages: [Page] = await fetchableResults.prefix(resultCount).concurrentMap { result -> Page? in
-            let idx = fetchableResults.firstIndex(of: result)!
+//            let idx = fetchableResults.firstIndex(of: result)!
             let pageOpt = try? await withTimeout(timeout, work: {
                 // We will further limit chars later
                 try? await Page.fetch(forSearchResult: result, timeout: timeout, urlMode: urlMode)

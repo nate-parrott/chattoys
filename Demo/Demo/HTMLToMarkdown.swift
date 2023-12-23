@@ -23,8 +23,9 @@ struct HTMLToMarkdownDemo: View {
                         result = .loading
                         Task {
                             do {
-                                let (data, resp) = try await URLSession.shared.data(from: url)
-                                let markdown = try await FastHTMLProcessor(url: resp.url ?? url, data: data).markdown(urlMode: .truncate(50))
+                                let markdown = try await WebContext.Page.fetch(forSearchResult: .init(url: url, title: "", snippet: nil), timeout: 5, urlMode: .truncate(50)).markdown
+//                                let (data, resp) = try await URLSession.shared.data(from: url)
+//                                let markdown = try await FastHTMLProcessor(url: resp.url ?? url, data: data).markdown(urlMode: .truncate(50))
                                 result = .fetched(markdown)
                             } catch {
                                 result = .error(error)
