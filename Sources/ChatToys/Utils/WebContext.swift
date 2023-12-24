@@ -4,6 +4,17 @@ public struct WebContext: Equatable, Codable {
     public struct Page: Equatable, Codable {
         public var searchResult: WebSearchResult
         public var markdown: String
+
+        public var markdownWithSnippetAndTitle: String {
+            var lines = [String]()
+            lines.append("# " + searchResult.title)
+            if let snippet = searchResult.snippet {
+                lines.append(snippet)
+            }
+
+            lines.append(markdown)
+            return lines.joined(separator: "n")
+        }
     }
     public var pages: [Page]
     public var urlMode: FastHTMLProcessor.URLMode
@@ -16,13 +27,7 @@ public struct WebContext: Equatable, Codable {
             } else {
                 lines.append("BEGIN WEB PAGE \(page.searchResult.url.hostWithoutWWW)")
             }
-
-            lines.append("# " + page.searchResult.title)
-            if let snippet = page.searchResult.snippet {
-                lines.append(snippet)
-            }
-
-            lines.append(page.markdown)
+            lines.append(page.markdownWithSnippetAndTitle)
 
             lines.append("END WEB PAGE")
             lines.append("")
@@ -61,7 +66,7 @@ public extension WebContext {
         urlMode: FastHTMLProcessor.URLMode = .keep
     ) async throws -> WebContext {
         // TODO: Rank
-        let blockedDomains = Set(["youtube.com", "twitter.com"])
+        let blockedDomains = Set(["youtube.com", "twitter.com", "facebook.com", "instagram.com"])
         let fetchableResults = results.filter { !blockedDomains.contains($0.url.hostWithoutWWW) }
 
         let pages: [Page] = await fetchableResults.prefix(resultCount).concurrentMap { result -> Page? in
