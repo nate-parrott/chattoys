@@ -54,7 +54,7 @@ public class FastHTMLProcessor {
         case worst
     }
 
-    public func markdown(urlMode: URLMode) -> String {
+    public func markdown(urlMode: URLMode, hideImages: Bool = false) -> String {
         guard let body = doc.body else {
             return ""
         }
@@ -74,7 +74,7 @@ public class FastHTMLProcessor {
             return [body]
         }()
         for el in mainElements {
-            traverse(element: el, doc: &doc, score: .normal, urlMode: urlMode, withinInline: false)
+            traverse(element: el, doc: &doc, score: .normal, urlMode: urlMode, withinInline: false, hideImages: hideImages)
         }
         return doc.asMarkdown
     }
@@ -84,7 +84,7 @@ public class FastHTMLProcessor {
         for script in self.doc.css("script[type='application/ld+json']") {
             if let text = script.stringValue.data(using: .utf8) {
                 if let json = try? JSONSerialization.jsonObject(with: text, options: []) {
-                    let processed = processAllURLs(inJson: json, urlMode: urlMode)
+                    let processed = processJsonLD(inJson: json, urlMode: urlMode)
                     if let encoded = try? JSONSerialization.data(withJSONObject: processed, options: []) {
                         if let str = String(data: encoded, encoding: .utf8) {
                             doc.bestLines.append(str)
@@ -109,7 +109,7 @@ public class FastHTMLProcessor {
         }
     }
 
-    private func traverse(element: Fuzi.XMLElement, doc: inout MarkdownDoc, score parentScore: Score, urlMode: URLMode, withinInline: Bool) {
+    private func traverse(element: Fuzi.XMLElement, doc: inout MarkdownDoc, score parentScore: Score, urlMode: URLMode, withinInline: Bool, hideImages: Bool) {
         guard var score = self.score(element: element) else {
             return // skipped
         }
@@ -120,6 +120,9 @@ public class FastHTMLProcessor {
 
         // Handle images:
         if tagLower == "img" {
+            if hideImages {
+                return
+            }
             if let alt = element.attr("alt")?.nilIfEmpty, let src = element.attr("src")?.nilIfEmpty {
                 doc.startNewLine(with: score)
                 doc.appendInline(text: "![\(alt.collapseWhitespace)]", with: score)
@@ -163,7 +166,8 @@ public class FastHTMLProcessor {
                         doc: &doc,
                         score: score,
                         urlMode: urlMode,
-                        withinInline: inline
+                        withinInline: inline,
+                        hideImages: hideImages
                     )
                 }
             default: ()
@@ -208,7 +212,7 @@ public class FastHTMLProcessor {
             return nil
         }
         let role = element.attr("aria-role")
-        let droppedAriaRoles = Set<String>([ "banner", "alert", "dialog", "navigation" ])
+        let droppedAriaRoles = Set<String>([ "banner", "alert", "dialog", "navigation", "button" ])
         if droppedAriaRoles.contains(role ?? "") {
             return nil
         }
@@ -240,6 +244,7 @@ public class FastHTMLProcessor {
         "object",
         "iframe",
         "dialog",
+        "button",
     ])
 
     private struct Rule {
@@ -376,15 +381,21 @@ public extension FastHTMLProcessor {
     }
 }
 
-func processAllURLs(inJson json: Any, urlMode: FastHTMLProcessor.URLMode) -> Any {
+func processJsonLD(inJson json: Any, urlMode: FastHTMLProcessor.URLMode) -> Any {
+    let skipKeys = ["@type", "@context"]
     if let dict = json as? [String: Any] {
         var newDict = [String: Any]()
         for (k, v) in dict {
-            newDict[k] = processAllURLs(inJson: v, urlMode: urlMode)
+            let newVal = processJsonLD(inJson: v, urlMode: urlMode)
+            if (newVal as? NSNull) != nil || (newVal as? String) == "" || skipKeys.contains(k) {
+                // skip
+            } else {
+                newDict[k] = processJsonLD(inJson: v, urlMode: urlMode)
+            }
         }
         return newDict
     } else if let arr = json as? [Any] {
-        return arr.map { processAllURLs(inJson: $0, urlMode: urlMode) }
+        return arr.map { processJsonLD(inJson: $0, urlMode: urlMode) }
     } else if let str = json as? String {
         if str.isURL, let url = URL(string: str) {
             if let processed = urlMode.process(url: url) {
