@@ -18,6 +18,7 @@ public struct WebContext: Equatable, Codable {
     }
     public var pages: [Page]
     public var urlMode: FastHTMLProcessor.URLMode
+    public var query: String
 
     public var asString: String {
         var lines = [String]()
@@ -60,6 +61,7 @@ extension WebContext.Page {
 public extension WebContext {
     static func from(
         results: [WebSearchResult],
+        query: String,
         timeout: TimeInterval,
         resultCount: Int,
         charLimit: Int,
@@ -67,7 +69,9 @@ public extension WebContext {
     ) async throws -> WebContext {
         // TODO: Rank
         let blockedDomains = Set(["youtube.com", "twitter.com", "facebook.com", "instagram.com"])
-        let fetchableResults = results.filter { !blockedDomains.contains($0.url.hostWithoutWWW) }
+        let elevatedDomains = Set(["en.wikipedia.org"]) // TODO: non-en
+        var fetchableResults = results.filter { !blockedDomains.contains($0.url.hostWithoutWWW) }
+        fetchableResults = fetchableResults.moveMatchingItemsToBeginning { elevatedDomains.contains($0.url.hostWithoutWWW) }
 
         let pages: [Page] = await fetchableResults.prefix(resultCount).concurrentMap { result -> Page? in
 //            let idx = fetchableResults.firstIndex(of: result)!
@@ -81,7 +85,7 @@ public extension WebContext {
             return nil
         }.compactMap { $0 }
 
-        return WebContext(pages: pages, urlMode: urlMode).trimToFit(charLimit: charLimit)
+        return WebContext(pages: pages, urlMode: urlMode, query: query).trimToFit(charLimit: charLimit)
     }
 
     func trimToFit(charLimit: Int) -> WebContext {
@@ -97,7 +101,7 @@ public extension WebContext {
             page.markdown = page.markdown.truncateWithEllipsis(charCount: page.markdown.count - Int(reduction))
             return page
         }
-        return .init(pages: pages, urlMode: urlMode)
+        return .init(pages: pages, urlMode: urlMode, query: query)
     }
 }
 
@@ -131,5 +135,13 @@ extension URL {
             parts.remove(at: 0)
         }
         return parts.joined(separator: ".")
+    }
+}
+
+extension Array {
+    mutating func moveMatchingItemsToBeginning(_ predicate: (Element) -> Bool) -> [Element] {
+        let front = filter(predicate)
+        let back = filter { !predicate($0) }
+        return front + back
     }
 }

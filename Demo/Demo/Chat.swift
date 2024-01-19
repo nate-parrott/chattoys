@@ -28,7 +28,21 @@ struct ChatDemo: View {
     private func sendMessage() {
         let text = self.text
         self.text = ""
+
         messages.append(LLMMessage(role: .user, content: text))
+
+        Task { [messages] in
+            var gpt = LLM.create() as! ChatGPT
+            gpt.options.temperature = 1
+            let choices = try await gpt.completeWithOptions(5, prompt: messages)
+            for choice in choices {
+                print("Prob: \(choice.logProb)")
+                print("Text: \(choice.completion)")
+            }
+        }
+
+        return
+
         botIsTyping = true
 
         // Fit prompt into context window:

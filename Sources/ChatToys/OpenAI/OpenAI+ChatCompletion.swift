@@ -86,6 +86,8 @@ extension ChatGPT: ChatLLM {
        var stop: [String]?
        var functions: [LLMFunction]?
        var response_format: ResponseFormat
+       var logprobs: Bool?
+       var n: Int?
 
        struct ResponseFormat: Codable {
            var type: String  = "text"
@@ -199,7 +201,7 @@ extension ChatGPT: ChatLLM {
    }
 
     // don't pass functions AND stream
-    private func createChatRequest(prompt: [LLMMessage], functions: [LLMFunction], stream: Bool) -> URLRequest {
+    private func createChatRequest(prompt: [LLMMessage], functions: [LLMFunction], stream: Bool, n: Int? = nil, logProbs: Bool = false) -> URLRequest {
         let cr = ChatCompletionRequest(
             messages: prompt.map { $0.asChatGPT },
             model: options.model.name,
@@ -207,7 +209,9 @@ extension ChatGPT: ChatLLM {
             stream: stream,
             stop: options.stop.nilIfEmptyArray,
             functions: functions.nilIfEmptyArray,
-            response_format: .init(type: options.jsonMode ? "json_object" : "text")
+            response_format: .init(type: options.jsonMode ? "json_object" : "text"),
+            logprobs: logProbs,
+            n: n
         )
 
        let url = URL(string: "https://api.openai.com/v1/chat/completions")!
@@ -261,6 +265,21 @@ extension ChatGPT {
     private struct NonStreamingResponse: Codable {
         struct Choice: Codable {
             var message: ChatGPT.Message
+            var logprobs: LogProbs?
+
+            struct LogProbs: Codable {
+                var content: [TokenWithProb]?
+                struct TokenWithProb: Codable {
+                    var token: String
+                    var logprob: Double
+                }
+            }
+
+            var logProb: Double? {
+                let probs = (logprobs?.content ?? []).compactMap { $0.logprob }
+                if probs.count == 0 { return nil }
+                return probs.reduce(0, { $0 + $1 })
+            }
         }
 
         struct Usage: Codable {
@@ -333,5 +352,26 @@ extension ChatGPT: FunctionCallingLLM {
 
     public func completeStreaming(prompt: [LLMMessage], functions: [LLMFunction]) -> AsyncThrowingStream<LLMMessage, Error> {
         _completeStreaming(prompt: prompt, functions: functions)
+    }
+}
+
+public struct CompletionOption: Equatable, Codable, Hashable {
+    public var completion: String
+    public var logProb: Double
+}
+
+extension ChatGPT {
+    public func completeWithOptions(_ n: Int, prompt: [LLMMessage]) async throws -> [CompletionOption] {
+        let req = createChatRequest(prompt: prompt, functions: [], stream: false, n: n, logProbs: true)
+        let (data, _) = try await URLSession.shared.data(for: req)
+        let response = try JSONDecoder().decode(NonStreamingResponse.self, from: data)
+        return response.choices.compactMap { choice in
+            if let prob = choice.logProb {
+                return .init(completion: choice.message.content ?? "", logProb: prob)
+            }
+            return nil
+        }
+        .sorted(by: { $0.logProb > $1.logProb })
+        .deduplicate { $0 }
     }
 }
