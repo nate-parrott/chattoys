@@ -66,6 +66,10 @@ private struct RememberButton: View {
     }
 }
 
+enum SemanticSearchError: Error {
+    case notSupportedOnThisPlatform
+}
+
 private class SemanticSearchEngine: ObservableObject {
     @Published var messages = [LLMMessage]()
     @Published var typing = false
@@ -131,6 +135,7 @@ private class SemanticSearchEngine: ObservableObject {
 
     // TODO: Do this atomically
     func ingestCurrentPage() async throws {
+        #if os(macOS)
         guard let title = try await Scripting.arcTitle(),
               let urlStr = try await Scripting.arcURL(),
               let url = URL(string: urlStr),
@@ -158,5 +163,8 @@ private class SemanticSearchEngine: ObservableObject {
             return VectorStore<PageRecord>.Record(id: UUID().uuidString, group: url.historyKey, date: Date(), text: text, data: PageRecord(title: title, url: url))
         }
         try await vectorStore.insert(records: records, deletingOldItemsFromGroup: url.historyKey)
+        #else
+        throw SemanticSearchError.notSupportedOnThisPlatform
+        #endif
     }
 }

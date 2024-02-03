@@ -68,7 +68,7 @@ public extension ChatLLM {
     }
 }
 
-public enum LLMError: Error {
+public enum LLMError: Error, Equatable {
     case tooManyTokens
     case http(Int)
     case unknown

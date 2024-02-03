@@ -3,8 +3,10 @@ import Foundation
 public struct ChatGPT {
     public enum Model: Equatable, Codable {
         case gpt35_turbo
+        case gpt35_turbo_0125
         case gpt35_turbo_16k
         case gpt4
+        case gpt4_turbo_preview
         case gpt4_32k
         case custom(String, Int)
 
@@ -14,10 +16,13 @@ public struct ChatGPT {
                 return "gpt-3.5-turbo"
             case .gpt35_turbo_16k:
                 return "gpt-3.5-turbo-16k"
+            case .gpt35_turbo_0125:
+                return "gpt-3.5-turbo-0125"
             case .custom(let string, _):
                 return string
             case .gpt4:
                 return "gpt-4"
+            case .gpt4_turbo_preview: return "gpt-4-turbo-preview"
             case .gpt4_32k:
                 return "gpt-4-32k"
             }
@@ -26,9 +31,10 @@ public struct ChatGPT {
         var tokenLimit: Int {
             switch self {
             case .gpt35_turbo: return 4096
-            case .gpt35_turbo_16k: return 16384
+            case .gpt35_turbo_16k, .gpt35_turbo_0125: return 16384
             case .gpt4: return 8192
             case .gpt4_32k: return 32768
+            case .gpt4_turbo_preview: return 128_000
             case .custom(_, let limit): return limit
             }
         }
@@ -340,6 +346,8 @@ extension ChatGPT.Model {
         case .gpt35_turbo_16k: return (0.3, 0.4)
         case .gpt4: return (3, 6)
         case .gpt4_32k: return (6, 12)
+        case .gpt35_turbo_0125: return (0.05, 0.15)
+        case .gpt4_turbo_preview: return (1, 3)
         case .custom: return (0, 0)
         }
     }
