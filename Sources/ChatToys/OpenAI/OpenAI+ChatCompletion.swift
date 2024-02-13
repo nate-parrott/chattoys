@@ -8,6 +8,7 @@ public struct ChatGPT {
         case gpt4
         case gpt4_turbo_preview
         case gpt4_32k
+        case gpt4_vision_preview
         case custom(String, Int)
 
         var name: String {
@@ -25,6 +26,7 @@ public struct ChatGPT {
             case .gpt4_turbo_preview: return "gpt-4-turbo-preview"
             case .gpt4_32k:
                 return "gpt-4-32k"
+            case .gpt4_vision_preview: return "gpt-4-vision-preview"
             }
         }
 
@@ -35,6 +37,7 @@ public struct ChatGPT {
             case .gpt4: return 8192
             case .gpt4_32k: return 32768
             case .gpt4_turbo_preview: return 128_000
+            case .gpt4_vision_preview: return 128_000
             case .custom(_, let limit): return limit
             }
         }
@@ -42,7 +45,7 @@ public struct ChatGPT {
 
     public struct Options: Equatable, Codable {
         public var temperature: Double
-//        public var max_tokens: Int
+        public var max_tokens: Int?
         public var model: Model
         public var stop: [String]
         public var printToConsole: Bool
@@ -51,9 +54,10 @@ public struct ChatGPT {
         public var printCost: Bool
         public var jsonMode: Bool
 
-        public init(temp: Double = 0.2, model: Model = .gpt35_turbo, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false) {
+        public init(temp: Double = 0.2, model: Model = .gpt35_turbo, maxTokens: Int? = nil, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false) {
             self.temperature = temp
             self.model = model
+            self.max_tokens = maxTokens
             self.stop = stop
             self.printToConsole = printToConsole
             self.printCost = printCost
@@ -78,10 +82,77 @@ extension ChatGPT: ChatLLM {
            case assistant
            case function
        }
+
+        struct Content: Equatable, Codable, Hashable {
+            enum ContentType: String, Equatable, Codable, Hashable {
+                case text = "text"
+                case imageURL = "image_url"
+            }
+            struct ImageURL: Equatable, Codable, Hashable {
+                var url: String
+                var detail: LLMMessage.Image.Detail?
+            }
+            var type: ContentType
+            var text: String?
+            var image_url: ImageURL?
+
+            static func text(_ str: String) -> Content {
+                .init(type: .text, text: str)
+            }
+
+            static func image(url: String, detail: LLMMessage.Image.Detail) -> Content {
+                .init(type: .imageURL, image_url: .init(url: url, detail: detail))
+            }
+        }
+
         var role: Role
-        var content: String?
+        var content: [Content] // Decode either a string or an array. When encoding, encode as string if possible.
         var name: String? // For function call responses (role=function)
         var function_call: LLMMessage.FunctionCall?
+        
+        var contentAsText: String {
+            content.compactMap { $0.text }.joined()
+        }
+
+        init(role: Role, content: [Content], functionCall: LLMMessage.FunctionCall? = nil, nameOfFunctionThatProduced: String? = nil) {
+            self.role = role
+            self.content = content
+            self.function_call = functionCall
+            self.name = nameOfFunctionThatProduced
+        }
+
+        // MARK: - Encoding/Decoding
+
+        enum CodingKeys: String, CodingKey {
+            case role
+            case content
+            case name
+            case function_call
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            role = try container.decode(Role.self, forKey: .role)
+            if let content = try? container.decode(String.self, forKey: .content) {
+                self.content = [.text(content)]
+            } else {
+                self.content = try container.decode([Content].self, forKey: .content)
+            }
+            name = try container.decodeIfPresent(String.self, forKey: .name)
+            function_call = try container.decodeIfPresent(LLMMessage.FunctionCall.self, forKey: .function_call)
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.container(keyedBy: CodingKeys.self)
+            try container.encode(role, forKey: .role)
+            if content.count == 1, let text = content.first?.text {
+                try container.encode(text, forKey: .content)
+            } else {
+                try container.encode(content, forKey: .content)
+            }
+            try container.encodeIfPresent(name, forKey: .name)
+            try container.encodeIfPresent(function_call, forKey: .function_call)
+        }
    }
 
    struct ChatCompletionRequest: Encodable {
@@ -91,7 +162,8 @@ extension ChatGPT: ChatLLM {
        var stream = true
        var stop: [String]?
        var functions: [LLMFunction]?
-       var response_format: ResponseFormat
+       var response_format: ResponseFormat?
+       var max_tokens: Int?
        var logprobs: Bool?
        var n: Int?
 
@@ -158,12 +230,12 @@ extension ChatGPT: ChatLLM {
        return AsyncThrowingStream { continuation in
            let src = EventSource(urlRequest: request)
 
-           var message = Message(role: .assistant, content: "")
+           var message = Message(role: .assistant, content: [.text("")])
 
            src.onComplete { statusCode, reconnect, error in
                if let statusCode, statusCode / 100 == 2 {
                    if options.printToConsole {
-                       print("OpenAI response:\n\((message.content ?? ""))")
+                       print("OpenAI response:\n\(message.contentAsText)")
                    }
                    continuation.finish()
                } else {
@@ -172,17 +244,18 @@ extension ChatGPT: ChatLLM {
                    } else if let statusCode {
                        continuation.yield(with: .failure(LLMError.http(statusCode)))
                    } else {
-                       continuation.yield(with: .failure(LLMError.unknown))
+                       continuation.yield(with: .failure(LLMError.unknown(nil)))
                    }
                }
            }
            src.onMessage { id, event, data in
                guard let data, data != "[DONE]" else { return }
+//               print(data)
                do {
                    let decoded = try JSONDecoder().decode(ChatCompletionStreamingResponse.self, from: Data(data.utf8))
                    if let delta = decoded.choices.first?.delta {
                        message.role = delta.role ?? message.role
-                       message.content = (message.content ?? "") + (delta.content ?? "")
+                       message.content = [.text(message.contentAsText + (delta.content ?? ""))]
                        if let functionDelta = delta.function_call {
                            message.function_call = message.function_call ?? .init(name: "", arguments: "")
                            message.function_call?.name += functionDelta.name ?? ""
@@ -206,8 +279,7 @@ extension ChatGPT: ChatLLM {
        return json.choices.first?.delta.content
    }
 
-    // don't pass functions AND stream
-    private func createChatRequest(prompt: [LLMMessage], functions: [LLMFunction], stream: Bool, n: Int? = nil, logProbs: Bool = false) -> URLRequest {
+    func createChatRequest(prompt: [LLMMessage], functions: [LLMFunction], stream: Bool, n: Int? = nil, logProbs: Bool = false) -> URLRequest {
         let cr = ChatCompletionRequest(
             messages: prompt.map { $0.asChatGPT },
             model: options.model.name,
@@ -215,8 +287,9 @@ extension ChatGPT: ChatLLM {
             stream: stream,
             stop: options.stop.nilIfEmptyArray,
             functions: functions.nilIfEmptyArray,
-            response_format: .init(type: options.jsonMode ? "json_object" : "text"),
-            logprobs: logProbs,
+            response_format: options.jsonMode ? .init(type: "json_object") : nil,
+            max_tokens: options.max_tokens,
+            logprobs: logProbs ? true : nil,
             n: n
         )
 
@@ -235,7 +308,14 @@ extension ChatGPT: ChatLLM {
 
 private extension LLMMessage {
     var asChatGPT: ChatGPT.Message {
-        ChatGPT.Message(role: role.asChatGPT, content: content, name: nameOfFunctionThatProduced, function_call: functionCall)
+        var msg = ChatGPT.Message(role: role.asChatGPT, content: [], functionCall: functionCall, nameOfFunctionThatProduced: nameOfFunctionThatProduced)
+        for image in images {
+            msg.content.append(.image(url: image.url.absoluteString, detail: image.detail ?? .auto))
+        }
+        if msg.content.count == 0 || self.content.nilIfEmpty != nil {
+            msg.content.append(.text(self.content))
+        }
+        return msg
     }
 }
 
@@ -250,9 +330,9 @@ private extension LLMMessage.Role {
     }
 }
 
-private extension ChatGPT.Message {
+extension ChatGPT.Message {
     var asLLMMessage: LLMMessage {
-        LLMMessage(role: role.asLLMMessage, content: content ?? "", functionCall: function_call, nameOfFunctionThatProduced: name)
+        LLMMessage(role: role.asLLMMessage, content: contentAsText, functionCall: function_call, nameOfFunctionThatProduced: name)
     }
 }
 
@@ -267,92 +347,6 @@ private extension ChatGPT.Message.Role {
     }
 }
 
-extension ChatGPT {
-    private struct NonStreamingResponse: Codable {
-        struct Choice: Codable {
-            var message: ChatGPT.Message
-            var logprobs: LogProbs?
-
-            struct LogProbs: Codable {
-                var content: [TokenWithProb]?
-                struct TokenWithProb: Codable {
-                    var token: String
-                    var logprob: Double
-                }
-            }
-
-            var logProb: Double? {
-                let probs = (logprobs?.content ?? []).compactMap { $0.logprob }
-                if probs.count == 0 { return nil }
-                return probs.reduce(0, { $0 + $1 })
-            }
-        }
-
-        struct Usage: Codable {
-            var completion_tokens: Int
-            var prompt_tokens: Int
-        }
-
-        var choices: [Choice]
-        var usage: Usage?
-    }
-
-    func _complete(prompt: [LLMMessage], functions: [LLMFunction] = []) async throws -> LLMMessage {
-        let request = createChatRequest(prompt: prompt, functions: functions, stream: false)
-        let (data, _) = try await URLSession.shared.data(for: request)
-//        print("resp: \(String(data: data, encoding: .utf8)!)")
-        let response = try JSONDecoder().decode(NonStreamingResponse.self, from: data)
-
-        guard let result = response.choices.first?.message else {
-            throw LLMError.unknown
-        }
-
-        if options.printToConsole {
-            print("OpenAI response:\n\((result))")
-        }
-
-        if options.printCost, let usage = response.usage {
-            let cost = options.model.cost
-            let promptCents = Double(usage.prompt_tokens) / 1000 * cost.centsPer1kPromptToken
-            let completionCents = Double(usage.completion_tokens) / 1000 * cost.centsPer1kCompletionToken
-            let totalCents = promptCents + completionCents
-            func formatCents(_ cents: Double) -> String {
-                let formatter = NumberFormatter()
-                formatter.numberStyle = .currency
-                formatter.currencyCode = "USD"
-                formatter.currencySymbol = "$"
-                formatter.maximumFractionDigits = 2
-                return formatter.string(from: NSNumber(value: cents / 100))!
-            }
-
-            print(
-            """
-            1000 copies of this \(options.model) request would cost, as of July 14, 2023:
-               \(formatCents(promptCents * 1000)): \(usage.prompt_tokens) prompt tokens per request
-             + \(formatCents(completionCents * 1000)): \(usage.completion_tokens) completion tokens per request
-            --------------------
-             = \(formatCents(totalCents * 1000)): total
-            """)
-        }
-
-        return result.asLLMMessage
-    }
-}
-
-extension ChatGPT.Model {
-    var cost: (centsPer1kPromptToken: Double, centsPer1kCompletionToken: Double) {
-        switch self {
-        case .gpt35_turbo: return (0.15, 0.2)
-        case .gpt35_turbo_16k: return (0.3, 0.4)
-        case .gpt4: return (3, 6)
-        case .gpt4_32k: return (6, 12)
-        case .gpt35_turbo_0125: return (0.05, 0.15)
-        case .gpt4_turbo_preview: return (1, 3)
-        case .custom: return (0, 0)
-        }
-    }
-}
-
 extension ChatGPT: FunctionCallingLLM {
     public func complete(prompt: [LLMMessage], functions: [LLMFunction]) async throws -> LLMMessage {
         try await _complete(prompt: prompt, functions: functions)
@@ -363,23 +357,16 @@ extension ChatGPT: FunctionCallingLLM {
     }
 }
 
-public struct CompletionOption: Equatable, Codable, Hashable {
-    public var completion: String
-    public var logProb: Double
+enum ImageError: Error {
+    case failedToConvertToDataURL
 }
 
-extension ChatGPT {
-    public func completeWithOptions(_ n: Int, prompt: [LLMMessage]) async throws -> [CompletionOption] {
-        let req = createChatRequest(prompt: prompt, functions: [], stream: false, n: n, logProbs: true)
-        let (data, _) = try await URLSession.shared.data(for: req)
-        let response = try JSONDecoder().decode(NonStreamingResponse.self, from: data)
-        return response.choices.compactMap { choice in
-            if let prob = choice.logProb {
-                return .init(completion: choice.message.content ?? "", logProb: prob)
-            }
-            return nil
+extension LLMMessage {
+    public mutating func add(image: ChatUINSImage, detail: LLMMessage.Image.Detail = .auto, maxSize: CGFloat? = nil) throws {
+        let maxDim = min(maxSize ?? 2000, detail == .low ? 512 : 2000)
+        guard let b64 = image.resizedWithMaxDimension(maxDimension: maxDim)?.asBase64DataURL() else {
+            throw ImageError.failedToConvertToDataURL
         }
-        .sorted(by: { $0.logProb > $1.logProb })
-        .deduplicate { $0 }
+        images.append(.init(url: b64, detail: detail))
     }
 }

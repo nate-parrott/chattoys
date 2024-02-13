@@ -90,7 +90,7 @@ extension LlamaCPP: ChatLLM {
                    } else if let statusCode {
                        continuation.yield(with: .failure(LLMError.http(statusCode)))
                    } else {
-                       continuation.yield(with: .failure(LLMError.unknown))
+                       continuation.yield(with: .failure(LLMError.unknown(nil)))
                    }
                }
            }
@@ -179,7 +179,7 @@ extension LlamaCPP {
         let response = try JSONDecoder().decode(NonStreamingResponse.self, from: data)
 
         guard let result = response.choices.first?.message else {
-            throw LLMError.unknown
+            throw LLMError.unknown(nil)
         }
 
         return result.asLLMMessage

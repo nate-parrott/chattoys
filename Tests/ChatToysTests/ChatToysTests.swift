@@ -124,6 +124,14 @@ final class ChatToysTests: XCTestCase {
     }
 
     func testPersistence() async throws {
+        try await _testPersistence(withDelete: false)
+    }
+
+    func testPersistenceWithDeletion() async throws {
+        try await  _testPersistence(withDelete: true)
+    }
+
+    func _testPersistence(withDelete: Bool) async throws {
         let tempTest = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("test-vectorstore")
         try? FileManager.default.removeItem(at: tempTest)
         struct Info: Equatable, Codable {}
@@ -131,6 +139,14 @@ final class ChatToysTests: XCTestCase {
         try await store.insert(records: [
             .init(id: "apple", group: nil, date: Date(), text: "Hey I like apples", data: .init()),
         ])
+
+        if withDelete {
+            try await store.insert(records: [
+                .init(id: "banana", group: nil, date: Date(), text: "Hey I like bananas", data: .init()),
+            ])
+            try await store.deleteRecords(ids: ["banana"])
+        }
+
         let beforeIds_Fts = try await store.fullTextSearch(query: "hey").map { $0.id }
         XCTAssertEqual(Set(beforeIds_Fts), Set(["apple"]))
         let beforeIds_Vector = try await store.embeddingSearch(query: "hey").map { $0.id }

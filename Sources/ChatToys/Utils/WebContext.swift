@@ -5,6 +5,11 @@ public struct WebContext: Equatable, Codable {
         public var searchResult: WebSearchResult
         public var markdown: String
 
+        public init(searchResult: WebSearchResult, markdown: String) {
+            self.searchResult = searchResult
+            self.markdown = markdown
+        }
+
         public var markdownWithSnippetAndTitle: String {
             var lines = [String]()
             lines.append("# " + searchResult.title)
@@ -34,6 +39,12 @@ public struct WebContext: Equatable, Codable {
             lines.append("")
         }
         return lines.joined(separator: "\n")
+    }
+
+    public init(pages: [Page], urlMode: FastHTMLProcessor.URLMode, query: String) {
+        self.pages = pages
+        self.urlMode = urlMode
+        self.query = query
     }
 }
 

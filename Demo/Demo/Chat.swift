@@ -5,6 +5,7 @@ struct ChatDemo: View {
     @State private var messages: [LLMMessage] = []
     @State private var text = ""
     @State private var botIsTyping = false
+    @State private var imageAttachment: ChatUINSImage? = nil
 
     var body: some View {
         VStack(spacing: 0) {
@@ -12,14 +13,15 @@ struct ChatDemo: View {
                 messages: messages, 
                 id: {_, index in index }, 
                 messageView: { message in
-                    TextMessageBubble(Text(message.content), isFromUser: message.role == .user)
+                    TextMessageBubble(Text(message.displayText), isFromUser: message.role == .user)
                 },
                 typingIndicator: botIsTyping
             )
             Divider()
-            ChatInputView(
-                placeholder: "Message", 
-                text: $text, 
+            ChatInputView_Multimodal(
+                placeholder: "Message",
+                text: $text,
+                imageAttachment: $imageAttachment,
                 sendAction: sendMessage
             )
         }
@@ -29,46 +31,95 @@ struct ChatDemo: View {
         let text = self.text
         self.text = ""
 
-        messages.append(LLMMessage(role: .user, content: text))
-
-        Task { [messages] in
-            var gpt = LLM.create() as! ChatGPT
-            gpt.options.temperature = 1
-            let choices = try await gpt.completeWithOptions(5, prompt: messages)
-            for choice in choices {
-                print("Prob: \(choice.logProb)")
-                print("Text: \(choice.completion)")
-            }
+        var msg = LLMMessage(role: .user, content: text)
+        if let imageAttachment {
+            try! msg.add(image: imageAttachment, detail: .low)
+            self.imageAttachment = nil
         }
-
-        return
+        messages.append(msg)
 
         botIsTyping = true
-
-        // Fit prompt into context window:
-        var prompt = Prompt()
-        for message in messages {
-            prompt.append(message.content, role: message.role, canOmit: true, omissionMessage: "[Older messages hidden]")
-        }
-        let llm = LLM.create()
-        let truncatedPrompt = prompt.packedPrompt(tokenCount: llm.tokenLimitWithWiggleRoom)
-
-        Task {
+        
+        Task { [messages] in
             do {
+                let llm = LLM.create()
+//                try await self.messages.append(llm.complete(prompt: Array(messages.suffix(7))))
+//                self.botIsTyping = false
                 var hasAppended = false
-                for try await partial in llm.completeStreaming(prompt: truncatedPrompt) {
+                for try await partial in llm.completeStreaming(prompt: Array(messages.suffix(7))) {
                     if hasAppended {
-                        messages.removeLast()
+                        self.messages.removeLast()
                     }
-                    messages.append(partial)
+                    self.messages.append(partial)
                     hasAppended = true
                     self.botIsTyping = false
                 }
             } catch {
                 let text = "Error: \(error)"
-                messages.append(.init(role: .system, content: text))
+                self.messages.append(.init(role: .system, content: text))
                 self.botIsTyping = false
             }
         }
+    }
+}
+
+extension LLMMessage {
+    var displayText: String {
+        var parts = [content]
+        if images.count > 0 {
+            parts.append("[\(images.count) images]")
+        }
+        return parts.joined(separator: " ")
+    }
+}
+
+struct ChatInputView_Multimodal: View {
+    public let placeholder: String
+    @Binding public var text: String
+    @Binding var imageAttachment: ChatUINSImage?
+    public let sendAction: () -> Void
+
+    @State private var filePickerOpen = false
+
+    public var body: some View {
+        HStack(spacing: 10) {
+            TextField(placeholder, text: $text)
+                .textFieldStyle(.plain)
+
+            Button(action: toggleImage) {
+                Image(systemName: imageAttachment != nil ? "photo.fill" : "photo")
+                    .foregroundColor(.accentColor)
+                    .font(.system(size: 20))
+            }
+            .buttonStyle(PlainButtonStyle())
+
+            Button(action: sendAction) {
+                Image(systemName: "arrow.up.circle.fill")
+                    .foregroundColor(.accentColor)
+                    .font(.system(size: 30))
+            }
+            .buttonStyle(PlainButtonStyle())
+            .disabled(text.isEmpty)
+        }
+        .fileImporter(isPresented: $filePickerOpen,
+                        allowedContentTypes: [.image]) { result in
+            guard case let .success(url) = result else { return }
+            guard let image = ChatUINSImage(contentsOf: url) else { return }
+            imageAttachment = image
+          }
+        .onSubmit {
+            if !text.isEmpty {
+                sendAction()
+            }
+        }
+        .padding(10)
+    }
+
+    private func toggleImage() {
+        if imageAttachment != nil {
+            imageAttachment = nil
+            return
+        }
+        filePickerOpen = true
     }
 }

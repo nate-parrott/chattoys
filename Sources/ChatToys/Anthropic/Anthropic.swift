@@ -99,7 +99,7 @@ extension Claude: ChatLLM {
                     } else if let statusCode {
                         continuation.yield(with: .failure(LLMError.http(statusCode)))
                     } else {
-                        continuation.yield(with: .failure(LLMError.unknown))
+                        continuation.yield(with: .failure(LLMError.unknown(nil)))
                     }
                 }
             }

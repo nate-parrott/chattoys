@@ -53,6 +53,7 @@ public class VectorStore<RecordData: Codable & Equatable> {
 
     struct Metadata: Equatable, Codable {
         var nextVectorStoreId: USearchKey = 1
+        var deletedVectorsCount: Int = 0
     }
 
     // Only access these on `self.queue`:
@@ -171,7 +172,7 @@ public class VectorStore<RecordData: Codable & Equatable> {
         }
 
         await queue.performAsync {
-            self.vectorStore.reserve(UInt32(self.vectorStore.count) + UInt32(embeddings.count))
+            self.vectorStore.reserve(UInt32(self.vectorStore.count) + UInt32(embeddings.count) + UInt32(self.metadata.deletedVectorsCount))
 
             for (i, embedding) in embeddings.enumerated() {
                 self.vectorStore.add(key: vectorStoreIds[i], vector: embedding.vectors)
@@ -193,6 +194,7 @@ public class VectorStore<RecordData: Codable & Equatable> {
             return vectorIds
         }
         await queue.performAsync {
+            self.metadata.deletedVectorsCount += vectorIds.count
             for vecId in vectorIds {
                 self.vectorStore.remove(key: vecId)
             }
@@ -256,8 +258,8 @@ public class VectorStore<RecordData: Codable & Equatable> {
     public func embeddingSearch(query: String, limit: Int = 10) async throws -> [Record] {
         let invalidKey: USearchKey = 18446744073709551615
         let embedding = try await embedder.embed(documents: [query])[0]
-        let (vectorIds, _) = await queue.performAsync { self.vectorStore.search(vector: embedding.vectors, count: limit) }
-        let vectorIds_Filtered = vectorIds.filter { $0 != invalidKey }
+        let (vectorIds, _) = await queue.performAsync { self.vectorStore.search(vector: embedding.vectors, count: limit * 2) }
+        let vectorIds_Filtered = vectorIds.filter { $0 != invalidKey }.prefix(limit)
         return try await dbQueue.read { db in
             let matches = vectorIds_Filtered.compactMap { vectorId in
                 // Use sql to find the record matching vectorId
