@@ -45,9 +45,10 @@ public struct Claude {
 
 extension Claude: ChatLLM {
     private struct Request: Codable {
-        var prompt: String
+        var messages: [ClaudeMessage]
+        var system: String?
         var model: String
-        var max_tokens_to_sample: Int
+        var max_tokens: Int
         var stop_sequences: [String]?
         var temperature: Double
         var stream: Bool
@@ -66,19 +67,28 @@ extension Claude: ChatLLM {
 
 
     public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
-        let payload = Request(
-            prompt: prompt.asAnthropicPrompt + options.responsePrefix,
-            model: options.model.rawValue,
-            max_tokens_to_sample: options.maxTokens,
-            stop_sequences: options.stopSequences.nilIfEmptyArray,
-            temperature: options.temperature,
-            stream: true
-        )
-        if options.printToConsole {
-            print("[ChatLLM] Prompt:\n\(prompt.asAnthropicPrompt)")
-        }
        return AsyncThrowingStream { continuation in
-           let endpoint = URL(string: "https://api.anthropic.com/v1/complete")!
+           let payload: Request
+           do {
+               let (system, messages) = try prompt.convertToAnthropicPrompt()
+               let payload = Request(
+                   messages: messages,
+                   system: system,
+                   model: options.model.rawValue,
+                   max_tokens: options.maxTokens,
+                   stop_sequences: options.stopSequences.nilIfEmptyArray,
+                   temperature: options.temperature,
+                   stream: true
+               )
+               if options.printToConsole {
+                   print("[ChatLLM] System: \(system ?? "none")\n\(messages)")
+               }
+           } catch {
+               continuation.finish(throwing: error)
+               return
+           }
+
+           let endpoint = URL(string: "https://api.anthropic.com/v1/messages")!
            var urlRequest = URLRequest(url: endpoint)
            urlRequest.httpMethod = "POST"
            urlRequest.httpBody = try! JSONEncoder().encode(payload)
@@ -122,18 +132,98 @@ extension Claude: ChatLLM {
 }
 
 extension Sequence where Element == LLMMessage {
-    var asAnthropicPrompt: String {
-        var lines = self.map { "\($0.role.asAnthropicRole): \($0.content)" }
-        lines.append("Assistant: ")
-        return lines.joined(separator: "\n\n")
+    func convertToAnthropicPrompt() throws -> (system: String?, messages: [ClaudeMessage]) {
+        var system: String?
+        var messages = [ClaudeMessage]()
+        for (i, message) in self.enumerated() {
+            // Extract top system message
+            if message.role == .system, i == 0 {
+                system = message.content
+                continue
+            }
+            messages.append(try message.claudeMessage())
+        }
+        // TODO: merge contiguous messages with the same roles
+        return (system, messages)
     }
 }
 
-private extension LLMMessage.Role {
-    var asAnthropicRole: String {
+enum ClaudeMessageError: Error {
+    case imageIsNotBase64URL
+}
+
+extension LLMMessage {
+    func claudeMessage() throws -> ClaudeMessage {
+        var m = ClaudeMessage(role: role.claudeRole, content: [])
+        for image in images {
+            guard let claudeImage = image.url.asClaudeImage else {
+                throw ClaudeMessageError.imageIsNotBase64URL
+            }
+            m.content.append(claudeImage)
+        }
+        // If no images, or text is non-empty, add the text block
+        if m.content.isEmpty || content.nilIfEmpty != nil {
+            m.content.append(.init(type: .text, text: content))
+        }
+        return m
+    }
+}
+
+private extension URL {
+    // Extract b64 url like `data:image/jpeg;base64,XXXX"
+    // into ClaudeMessage.Content.Source
+
+    var asClaudeImage: ClaudeMessage.Content? {
+
+    }
+}
+
+enum ClaudeRole: String, Equatable, Codable {
+    case user
+    case assistant
+}
+
+extension LLMMessage.Role {
+    var claudeRole: ClaudeRole {
         switch self {
-        case .user, .system, .function: return "Human"
-        case .assistant: return "Assistant"
+        case .user, .system, .function:
+            return .user
+        case .assistant:
+            return .assistant
+        }
+    }
+}
+
+struct ClaudeMessage: Equatable, Codable {
+    var role: ClaudeRole
+    var content: [Content]
+
+    struct Content: Equatable, Codable {
+        /*
+         {
+           "type": "image",
+           "source": {
+             "type": "base64",
+             "media_type": "image/jpeg",
+             "data": "/9j/4AAQSkZJRg...",
+           }
+         },
+         {"type": "text", "text": "What is in this image?"}
+         */
+
+        enum ContentType: String, Equatable, Codable {
+            case image
+            case text
+        }
+
+        var type: ContentType
+        var text: String?
+        var source: Source?
+
+        struct Source: Equatable, Codable {
+            var type: String
+            var media_type: String
+            var data: String // base64
         }
     }
 }
