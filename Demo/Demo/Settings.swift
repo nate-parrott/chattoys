@@ -40,7 +40,7 @@ enum LLM: String, Equatable, Codable, CaseIterable {
         case .gpt4:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
         case .claude:
-            return Claude(credentials: AnthropicCredentials(apiKey: key), options: .init(model: .claudeInstant1, printToConsole: true))
+            return ClaudeNewAPI(credentials: AnthropicCredentials(apiKey: key), options: .init(model: .claude3Sonnet, printToConsole: true))
         case .llama:
             return LlamaCPP(modelName: llamaModel, tokenLimit: 512)
         case .gpt4Vision:

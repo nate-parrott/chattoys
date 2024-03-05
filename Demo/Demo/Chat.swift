@@ -87,9 +87,15 @@ struct ChatInputView_Multimodal: View {
                 .textFieldStyle(.plain)
 
             Button(action: toggleImage) {
-                Image(systemName: imageAttachment != nil ? "photo.fill" : "photo")
-                    .foregroundColor(.accentColor)
-                    .font(.system(size: 20))
+                HStack {
+                    if imageAttachment != nil {
+                        Text("Image attached")
+                    }
+
+                    Image(systemName: imageAttachment != nil ? "photo.fill" : "photo")
+                        .foregroundColor(.accentColor)
+                        .font(.system(size: 20))
+                }
             }
             .buttonStyle(PlainButtonStyle())
 
