@@ -13,6 +13,7 @@ public struct Claude {
     public enum Model: String, Equatable {
         case claudeInstant1 = "claude-instant-1"
         case claude2 = "claude-2"
+        case claude3Sonnet = "claude-3-sonnet-20240229" // medium
     }
 
     public struct Options {
@@ -59,6 +60,7 @@ extension Claude: ChatLLM {
     public var tokenLimit: Int {
         switch options.model {
         case .claudeInstant1, .claude2: return 100_000
+        case .claude3Sonnet: return 200_000
         }
     }
 

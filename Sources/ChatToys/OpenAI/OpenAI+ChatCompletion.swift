@@ -54,7 +54,7 @@ public struct ChatGPT {
         public var printCost: Bool
         public var jsonMode: Bool
 
-        public init(temp: Double = 0.2, model: Model = .gpt35_turbo, maxTokens: Int? = nil, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false) {
+        public init(temp: Double = 0, model: Model = .gpt35_turbo, maxTokens: Int? = nil, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false) {
             self.temperature = temp
             self.model = model
             self.max_tokens = maxTokens
@@ -133,10 +133,12 @@ extension ChatGPT: ChatLLM {
         init(from decoder: Decoder) throws {
             let container = try decoder.container(keyedBy: CodingKeys.self)
             role = try container.decode(Role.self, forKey: .role)
-            if let content = try? container.decode(String.self, forKey: .content) {
-                self.content = [.text(content)]
+            if let contentStr = try? container.decode(String.self, forKey: .content) {
+                self.content = [.text(contentStr)]
+            } else if let contentArray = try? container.decode([Content].self, forKey: .content) {
+                self.content = contentArray
             } else {
-                self.content = try container.decode([Content].self, forKey: .content)
+                self.content = []
             }
             name = try container.decodeIfPresent(String.self, forKey: .name)
             function_call = try container.decodeIfPresent(LLMMessage.FunctionCall.self, forKey: .function_call)

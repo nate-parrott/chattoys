@@ -23,6 +23,9 @@ extension Array {
 
 extension String {
     public var byExtractingOnlyCodeBlocks: String {
+        if !starts(with: "```") {
+            return self
+        }
         for separator in ["```", "`"] {
             let parts = self.components(separatedBy: separator)
             if parts.count == 1 {
