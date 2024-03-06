@@ -53,7 +53,7 @@ extension ClaudeNewAPI: ChatLLM {
     public var tokenLimit: Int {
         switch options.model {
         case .claudeInstant12, .claude2: return 100_000
-        case .claude3Sonnet: return 200_000
+        case .claude3Sonnet, .claude3Opus: return 200_000
         }
     }
 
@@ -154,9 +154,20 @@ extension Sequence where Element == LLMMessage {
             }
             messages.append(try message.claudeMessage())
         }
-        // TODO: merge contiguous messages with the same roles
-        return (system, messages)
+        return (system, messages: mergeContiguousMessagesWithSameRoles(messages: messages))
     }
+}
+
+private func mergeContiguousMessagesWithSameRoles(messages: [ClaudeMessage]) -> [ClaudeMessage] {
+    var merged = [ClaudeMessage]()
+    for message in messages {
+        if let last = merged.last, last.role == message.role {
+            merged[merged.count - 1] = .init(role: message.role, content: last.content + message.content)
+        } else {
+            merged.append(message)
+        }
+    }
+    return merged
 }
 
 enum ClaudeMessageError: Error {
