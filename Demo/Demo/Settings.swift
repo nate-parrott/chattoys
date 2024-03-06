@@ -9,12 +9,15 @@ enum LLM: String, Equatable, Codable, CaseIterable {
     case claude
     case llama
     case perplexityOnline7b
+    case groq
 
     static func createFunctionCalling() -> (any FunctionCallingLLM)? {
         let llm: LLM = .init(rawValue: UserDefaults.standard.string(forKey: "llm") ?? "") ?? .chatGPT
         let key = UserDefaults.standard.string(forKey: "key") ?? ""
         let orgId = UserDefaults.standard.string(forKey: "orgId") ?? ""
+        let groqKey = UserDefaults.standard.string(forKey: "groqKey") ?? ""
         let llamaModel = UserDefaults.standard.string(forKey: "llamaModel") ?? ""
+
         switch llm {
         case .chatGPT, .chatGPT16k:
             let model = (llm == .chatGPT16k) ? ChatGPT.Model.gpt35_turbo_16k : ChatGPT.Model.gpt35_turbo
@@ -23,7 +26,7 @@ enum LLM: String, Equatable, Codable, CaseIterable {
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
         case .gpt4Vision:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4_vision_preview, maxTokens: 4096))
-        case .claude, .llama, .perplexityOnline7b:
+        case .claude, .llama, .perplexityOnline7b, .groq:
             return nil
         }
     }
@@ -47,6 +50,8 @@ enum LLM: String, Equatable, Codable, CaseIterable {
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4_vision_preview, maxTokens: 4096, printCost: false))
         case .perplexityOnline7b:
             return PerplexityLLM(credentials: .init(apiKey: key), options: .init(model: .pplx7bOnline))
+        case .groq:
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(temp: 0, model: .custom("mixtral-8x7b-32768", 32000), maxTokens: 1024, stop: ["|user|:"], baseURL: .groqOpenAIChatEndpoint))
         }
     }
 }

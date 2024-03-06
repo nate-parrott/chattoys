@@ -1,5 +1,11 @@
 import Foundation
 
+public extension URL {
+    static var groqOpenAIChatEndpoint: URL {
+        URL(string: "https://api.groq.com/openai/v1/chat/completions")!
+    }
+}
+
 public struct ChatGPT {
     public enum Model: Equatable, Codable {
         case gpt35_turbo
@@ -53,8 +59,9 @@ public struct ChatGPT {
         // `printCost` disables streaming and prints cost to the console
         public var printCost: Bool
         public var jsonMode: Bool
+        public var baseURL: URL // Use to call OpenAI-compatible models that are not actually OpenAI's
 
-        public init(temp: Double = 0, model: Model = .gpt35_turbo, maxTokens: Int? = nil, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false) {
+        public init(temp: Double = 0, model: Model = .gpt35_turbo, maxTokens: Int? = nil, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false, baseURL: URL = URL(string: "https://api.openai.com/v1/chat/completions")!) {
             self.temperature = temp
             self.model = model
             self.max_tokens = maxTokens
@@ -62,6 +69,7 @@ public struct ChatGPT {
             self.printToConsole = printToConsole
             self.printCost = printCost
             self.jsonMode = jsonMode
+            self.baseURL = baseURL
         }
     }
 
@@ -295,8 +303,7 @@ extension ChatGPT: ChatLLM {
             n: n
         )
 
-       let url = URL(string: "https://api.openai.com/v1/chat/completions")!
-       var request = URLRequest(url: url)
+       var request = URLRequest(url: options.baseURL)
        request.httpMethod = "POST"
        request.setValue("Bearer \(credentials.apiKey)", forHTTPHeaderField: "Authorization")
        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
