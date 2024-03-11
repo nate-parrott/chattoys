@@ -142,13 +142,13 @@ extension ClaudeNewAPI: ChatLLM {
     }
 }
 
-extension Sequence where Element == LLMMessage {
+extension Array where Element == LLMMessage {
     func convertToAnthropicPrompt() throws -> (system: String?, messages: [ClaudeMessage]) {
         var system: String?
         var messages = [ClaudeMessage]()
         for (i, message) in self.enumerated() {
             // Extract top system message
-            if message.role == .system, i == 0 {
+            if message.role == .system, i == 0, self.count > 1 && self[1].role == .user {
                 system = message.content
                 continue
             }

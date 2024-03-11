@@ -11,7 +11,7 @@ public struct AnthropicCredentials {
 
 public struct Claude {
     public enum Model: String, Equatable {
-        case claudeInstant1 = "claude-instant-1"
+        case claudeInstant1 = "claude-instant-1.2"
         case claude2 = "claude-2"
     }
 

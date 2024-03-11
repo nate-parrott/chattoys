@@ -132,6 +132,7 @@ extension Array where Element == Double {
 
 extension String {
     func truncateWithEllipsis(charCount: Int) -> String {
+        if charCount == 0 { return "" }
         if count + 1 > charCount {
             return String(prefix(charCount - 1)) + "…"
         }
