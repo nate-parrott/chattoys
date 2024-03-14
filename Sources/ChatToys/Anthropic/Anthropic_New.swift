@@ -1,9 +1,12 @@
 import Foundation
 
+// Uses new message-based claude API
+// TODO: implement streaming
 public struct ClaudeNewAPI {
     public enum Model: String, Equatable {
         case claudeInstant12 = "claude-instant-1.2"
         case claude2 = "claude-2"
+        case claude3Haiku = "claude-3-haiku-20240307" // small
         case claude3Sonnet = "claude-3-sonnet-20240229" // medium
         case claude3Opus = "claude-3-opus-20240229" // large
     }
