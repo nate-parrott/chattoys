@@ -56,7 +56,7 @@ extension ClaudeNewAPI: ChatLLM {
     public var tokenLimit: Int {
         switch options.model {
         case .claudeInstant12, .claude2: return 100_000
-        case .claude3Sonnet, .claude3Opus: return 200_000
+        case .claude3Sonnet, .claude3Opus, .claude3Haiku: return 200_000
         }
     }
 
