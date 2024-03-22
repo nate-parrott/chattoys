@@ -72,8 +72,10 @@ public struct OpenAIEmbedder: Embedder {
             throw EmbeddingError.wrongNumberOfResponses
         }
 
-        return response.data.map { Embedding(vectors: $0.embedding, provider: "openai-\(body.model)") }
+        return response.data.map { Embedding(vectors: $0.embedding, provider: providerString) }
     }
+
+    public var providerString: String { "openai-\(options.model.rawValue)" }
 
     public var tokenLimit: Int { 8191 }
 

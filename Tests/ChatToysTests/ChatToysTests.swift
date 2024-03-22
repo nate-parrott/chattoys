@@ -244,6 +244,23 @@ final class ChatToysTests: XCTestCase {
         print(try! String(data: enc.encode(fn), encoding: .utf8)!)
         try XCTAssertTrue(compareJson(object: fn, reference: target))
     }
+
+    func testSortedPrefix() {
+//        public func sortedPrefix(
+//          _ count: Int,
+//          by areInIncreasingOrder: (Element, Element) throws -> Bool
+        for _ in 0...4 {
+            // Choose random length from 1000...2000
+            let length = 1000 + Int.random(in: 0..<1000)
+            let arr: [Int] = (0..<length).map { _ in Int.random(in: 0..<1000) }
+            // Assert that the sortedPrefix function works and is the same as sorting and taking prefix
+            let prefixLen = Int.random(in: 1..<50)
+            let sortedPrefix = arr.sortedPrefix(prefixLen, by: <)
+            let sorted = arr.sorted(by: <)
+            let prefix = Array(sorted.prefix(prefixLen))
+            XCTAssertEqual(sortedPrefix, prefix)
+        }
+    }
 }
 
 func compareJson(data1: Data, data2: Data) throws -> Bool {
@@ -270,6 +287,7 @@ struct HashEmbedder: Embedder {
     }
     var tokenLimit: Int { 4096 } // aka context size
     var dimensions: Int { 128 }
+    var providerString: String { "test:hashEmbedder" }
 }
 
 func roundtripEncoded<T: Encodable & Decodable>(_ element: T) throws -> T {

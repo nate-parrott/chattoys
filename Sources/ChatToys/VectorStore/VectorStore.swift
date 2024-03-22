@@ -1,6 +1,5 @@
 import Foundation
 import GRDB
-import USearch
 
 #if os(macOS)
 import AppKit
@@ -8,22 +7,46 @@ import AppKit
 import UIKit
 #endif
 
-
-public struct VectorStoreRecord<RecordData: Equatable & Codable>: Equatable, Codable, FetchableRecord, PersistableRecord {
+public struct VectorStoreRecord<RecordData: Equatable & Codable>: Equatable, Codable {
     public var id: String
     public var group: String
     public var date: Date
     public var text: String
     public var data: RecordData
-    fileprivate var vectorId: USearchKey?
 
-    // `text` should fit an OpenAI embedding model
+    // `text` should fit an OpenAI embedding model, 8k tokens
     public init(id: String, group: String?, date: Date, text: String, data: RecordData) {
         self.id = id
         self.group = group ?? ""
         self.date = date
         self.text = text
         self.data = data
+    }
+}
+
+private struct VectorStoreRecordInternal<RecordData: Equatable & Codable>: Equatable, Codable, FetchableRecord, PersistableRecord {
+    var id: String
+    var group: String
+    var date: Date
+    var text: String
+    var embedding: Data
+    var data: RecordData
+
+    init(record: VectorStoreRecord<RecordData>, embedding: Embedding) {
+        self.id = record.id
+        self.group = record.group
+        self.date = record.date
+        self.text = record.text
+        self.embedding = embedding.dataHalfPrecision
+        self.data = record.data
+    }
+
+    func record() -> VectorStoreRecord<RecordData> {
+        VectorStoreRecord(id: id, group: group, date: date, text: text, data: data)
+    }
+
+    func loadedEmbedding(provider: String) -> Embedding? {
+        Embedding(data: embedding, halfPrecision: true, provider: provider)
     }
 
     public static var databaseTableName: String { "record" }
@@ -35,8 +58,8 @@ enum VectorStoreError: Error {
 
 public class VectorStore<RecordData: Codable & Equatable> {
     public typealias Record = VectorStoreRecord<RecordData>
+    private typealias InternalRecord = VectorStoreRecordInternal<RecordData>
 
-    let vectorStore: USearchIndex
     let url: URL?
     private var vectorStoreURL: URL? {
         url?.appendingPathComponent("vectorstore")
@@ -52,8 +75,8 @@ public class VectorStore<RecordData: Codable & Equatable> {
     private let queue = DispatchQueue(label: "VectorStore", qos: .default)
 
     struct Metadata: Equatable, Codable {
-        var nextVectorStoreId: USearchKey = 1
-        var deletedVectorsCount: Int = 0
+//        var nextVectorStoreId: USearchKey = 1
+//        var deletedVectorsCount: Int = 0
     }
 
     // Only access these on `self.queue`:
@@ -87,6 +110,7 @@ public class VectorStore<RecordData: Codable & Equatable> {
                     t.column("date", .datetime)
                     t.column("group", .text)
                     t.column("text", .text)
+                    t.column("embedding", .blob)
                     t.column("data", .blob)
                     t.column("vectorId", .integer)
                 }
@@ -103,10 +127,10 @@ public class VectorStore<RecordData: Codable & Equatable> {
         }
 
         // Setup vector store:
-        self.vectorStore = USearchIndex.make(metric: .cos, dimensions: UInt32(embedder.dimensions), connectivity: 16, quantization: .F16)
-        if let path = vectorStoreURL?.path, FileManager.default.fileExists(atPath: path) {
-            vectorStore.load(path: path) // TODO: properly handle the NSException
-        }
+//        self.vectorStore = USearchIndex.make(metric: .cos, dimensions: UInt32(embedder.dimensions), connectivity: 16, quantization: .F16)
+//        if let path = vectorStoreURL?.path, FileManager.default.fileExists(atPath: path) {
+//            vectorStore.load(path: path) // TODO: properly handle the NSException
+//        }
 
         // Setup metadata:
         if let path = metadataURL?.path {
@@ -125,17 +149,17 @@ public class VectorStore<RecordData: Codable & Equatable> {
         }
     }
 
-    public func rebuild() {
-        // TODO: Implement. lock the data structure, clear the vector store and re-insert everything
-    }
+    // public func rebuild() {
+    //     // TODO: Implement. lock the data structure, clear the vector store and re-insert everything
+    // }
 
     // MARK: - API
 
     public func save(sync: Bool) {
         func actuallySave() {
-            if let path = vectorStoreURL?.path {
-                vectorStore.save(path: path)
-            }
+//            if let path = vectorStoreURL?.path {
+//                vectorStore.save(path: path)
+//            }
             if let path = metadataURL?.path {
                 let data = try? JSONEncoder().encode(metadata)
                 try? data?.write(to: URL(fileURLWithPath: path))
@@ -151,33 +175,33 @@ public class VectorStore<RecordData: Codable & Equatable> {
     /// TODO: should we take out a lock when doing this work?
     /// In order for `deletingOldItemsFromGroup` to work properly, there must be no overlap between the IDs that are being added and deleted
     public func insert(records: [Record], deletingOldItemsFromGroup group: String? = nil) async throws {
-        let embeddings = try await embedder.embed(documents: records.map { $0.text })
-        let vectorStoreIds = await assignVectorStoreIds(count: embeddings.count)
+//        let embeddings = try await embedder.embed(documents: records.map { $0.text })
+//        let vectorStoreIds = await assignVectorStoreIds(count: embeddings.count)
 
         // TODO: Check to see if this data matches existing data before embedding
         let idsToDelete = try await recordIds(forItemsInGroups: group != nil ? [group!] : [])
 
+        let embeddings = try await embedder.embed(documents: records.map { $0.text })
+        let internalRecords = records.enumerated().map { VectorStoreRecordInternal(record: $1, embedding: embeddings[$0]) }
+
         try await dbQueue.write { db in
             // Remove existing records with IDs
-            // TODO: Delete existing vectors for these records
             for record in records {
-                try Record.deleteOne(db, key: record.id)
+                try InternalRecord.deleteOne(db, key: record.id)
             }
 
-            for (i, record) in records.enumerated() {
-                var r2 = record
-                r2.vectorId = vectorStoreIds[i]
-                try r2.insert(db)
+            for record in internalRecords {
+                try record.insert(db)
             }
         }
 
-        await queue.performAsync {
-            self.vectorStore.reserve(UInt32(self.vectorStore.count) + UInt32(embeddings.count) + UInt32(self.metadata.deletedVectorsCount))
-
-            for (i, embedding) in embeddings.enumerated() {
-                self.vectorStore.add(key: vectorStoreIds[i], vector: embedding.vectors)
-            }
-        }
+//        await queue.performAsync {
+//            self.vectorStore.reserve(UInt32(self.vectorStore.count) + UInt32(embeddings.count) + UInt32(self.metadata.deletedVectorsCount))
+//
+//            for (i, embedding) in embeddings.enumerated() {
+//                self.vectorStore.add(key: vectorStoreIds[i], vector: embedding.vectors)
+//            }
+//        }
 
         if idsToDelete.count > 0 {
             try await deleteRecords(ids: idsToDelete)
@@ -187,18 +211,19 @@ public class VectorStore<RecordData: Codable & Equatable> {
     public func deleteRecords(ids: [String]) async throws {
         if ids.count == 0 { return }
         // Find all records with these IDs and fetch their vectorIds
-        let vectorIds = try await dbQueue.write { db in
-            let vectorIds = try Record.filter(keys: ids).fetchAll(db).compactMap { $0.vectorId }
+        _ = try await dbQueue.write { db in
+//            let vectorIds = try Record.filter(keys: ids).fetchAll(db).compactMap { $0.vectorId }
             // now delete
-            try Record.deleteAll(db, keys: ids)
-            return vectorIds
+            try InternalRecord.deleteAll(db, keys: ids)
+//            return vectorIds
         }
-        await queue.performAsync {
-            self.metadata.deletedVectorsCount += vectorIds.count
-            for vecId in vectorIds {
-                self.vectorStore.remove(key: vecId)
-            }
-        }
+
+//        await queue.performAsync {
+//            self.metadata.deletedVectorsCount += vectorIds.count
+//            for vecId in vectorIds {
+//                self.vectorStore.remove(key: vecId)
+//            }
+//        }
     }
 
     public func deleteRecords(groups: [String]) async throws {
@@ -210,7 +235,7 @@ public class VectorStore<RecordData: Codable & Equatable> {
         return try await dbQueue.read { db in
             var ids = [String]()
             for group in groups {
-                ids.append(contentsOf: try Record.filter(Column("group") == group).fetchAll(db).map { $0.id })
+                ids.append(contentsOf: try InternalRecord.filter(Column("group") == group).fetchAll(db).map { $0.id })
             }
             return ids
         }
@@ -226,7 +251,7 @@ public class VectorStore<RecordData: Codable & Equatable> {
     public func deleteOldestRecords(keep: Int) async throws {
         // Select num_records - keep oldest record IDs and delete them
         let ids = try await dbQueue.read { db in
-            let ids = try Record.order(Column("date").desc).limit(1_000_000, offset: keep).fetchAll(db).map { $0.id }
+            let ids = try InternalRecord.order(Column("date").desc).limit(1_000_000, offset: keep).fetchAll(db).map { $0.id }
             return ids
         }
         try await deleteRecords(ids: ids)
@@ -234,7 +259,7 @@ public class VectorStore<RecordData: Codable & Equatable> {
 
     public func record(forId id: String) async throws -> Record? {
         try await dbQueue.read { db in
-            try Record.fetchOne(db, key: id)
+            try InternalRecord.fetchOne(db, key: id)?.record()
         }
     }
 
@@ -250,33 +275,40 @@ public class VectorStore<RecordData: Codable & Equatable> {
                 LIMIT ?
             """
             let pattern = FTS5Pattern(matchingAnyTokenIn: query)
-            let records = try Record.fetchAll(db, sql: sql, arguments: [pattern, limit])
-            return records
+            let records = try InternalRecord.fetchAll(db, sql: sql, arguments: [pattern, limit])
+            return records.map { $0.record() }
         }
     }
 
     public func embeddingSearch(query: String, limit: Int = 10) async throws -> [Record] {
-        let invalidKey: USearchKey = 18446744073709551615
+        //        let invalidKey: USearchKey = 18446744073709551615
         let embedding = try await embedder.embed(documents: [query])[0]
-        let (vectorIds, _) = await queue.performAsync { self.vectorStore.search(vector: embedding.vectors, count: limit * 2) }
-        let vectorIds_Filtered = vectorIds.filter { $0 != invalidKey }.prefix(limit)
-        return try await dbQueue.read { db in
-            let matches = vectorIds_Filtered.compactMap { vectorId in
-                // Use sql to find the record matching vectorId
-                try? Record.fetchOne(db, sql: "SELECT * FROM record WHERE vectorId = ? LIMIT 1", arguments: [vectorId])
-            }
-            return matches
+        let p = embedder.providerString
+        // (id, similarity)
+        // TODO: Only fetch rows we care about (ignore `data`)
+        let itemsToSort: [(String, Float)] = try await dbQueue.read { db in
+            return try InternalRecord
+//                .fetch
+//                .select(Column("id"), Column("embedding"))
+                .fetchAll(db)
+                .compactMap { ($0.id, $0.loadedEmbedding(provider: p)?.cosineSimilarity(with: embedding) ?? -1) }
         }
+        // TODO: Do better than sort
+        let ids = itemsToSort.sortedPrefix(limit, by: { $0.1 >= $1.1 }).map { $0.0 }
+        let records = try await dbQueue.read { db in
+            try InternalRecord.filter(keys: ids).fetchAll(db).map { $0.record() }
+        }
+        return records.ordered(usingOrderOfIds: ids, id: \.id)
     }
+}
 
-    // MARK: - Internal
-    func assignVectorStoreIds(count: Int) async -> [USearchKey] {
-        await queue.performAsync {
-            let nextId = self.metadata.nextVectorStoreId
-            let newIds = (0..<count).map { nextId + USearchKey($0) }
-            self.metadata.nextVectorStoreId += USearchKey(count)
-            return newIds
+extension Array {
+    func ordered(usingOrderOfIds ids: [String], id: (Element) -> String) -> [Element] {
+        var items = [String: Element]()
+        for item in self {
+            items[id(item)] = item
         }
+        return ids.compactMap { items[$0] }
     }
 }
 
