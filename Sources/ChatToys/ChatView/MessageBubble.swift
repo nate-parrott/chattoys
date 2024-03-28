@@ -59,6 +59,24 @@ public struct TextMessageBubble: View {
     }
 }
 
+public struct StreamingTextMessageBubble: View {
+    public var text: String
+    public var isFromUser: Bool
+
+    public init(_ text: String, isFromUser: Bool) {
+        self.text = text
+        self.isFromUser = isFromUser
+    }
+
+    public var body: some View {
+        MessageBubble(isFromUser: isFromUser) {
+            StreamingText(text: text, color: isFromUser ? .white : .primary)
+                .textSelection(.enabled)
+                .withStandardMessagePadding
+        }
+    }
+}
+
 extension View {
     var withStandardMessagePadding: some View {
         self
