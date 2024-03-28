@@ -41,6 +41,26 @@ public struct WebContext: Equatable, Codable {
         return lines.joined(separator: "\n")
     }
 
+    // For anthropic models, which are trained to expect xml for organizating text
+    public var asXML: String {
+        var lines = [String]()
+        lines.append("<search-results query='\(query)'>")
+        for page in pages {
+            let pageTitleURLMode = FastHTMLProcessor.URLMode.truncate(200)
+            if let processed = pageTitleURLMode.process(url: page.searchResult.url) {
+                lines.append("<webpage url='\(processed)'>")
+            } else {
+                lines.append("<webpage domain='\(page.searchResult.url.hostWithoutWWW)'>")
+            }
+            lines.append(page.markdownWithSnippetAndTitle)
+
+            lines.append("</webpage>")
+            lines.append("")
+        }
+        lines.append("</search-results>")
+        return lines.joined(separator: "\n")
+    }
+
     public init(pages: [Page], urlMode: FastHTMLProcessor.URLMode, query: String) {
         self.pages = pages
         self.urlMode = urlMode

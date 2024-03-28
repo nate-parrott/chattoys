@@ -80,6 +80,18 @@ extension ClaudeNewAPI: ChatLLM {
     }
 
     public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
+//        return AsyncThrowingStream { cont in
+//            Task {
+//                do {
+//                    let res = try await self.complete(prompt: prompt)
+//                    cont.yield(res)
+//                    cont.finish()
+//                } catch {
+//                    cont.finish(throwing: error)
+//                }
+//            }
+//        }
+
         let request: URLRequest
         do {
             request = try createRequest(prompt: prompt, stream: true)
