@@ -316,7 +316,7 @@ func timeExecution<T>(printWithLabel label: String?, _ block: () throws -> T) re
         formatter.minimumIntegerDigits = 1
         formatter.roundingMode = .halfUp
         let ms = formatter.string(from: NSNumber(value: elapsed * 1000))!
-        print("🏁 \(label): \(ms) ms")
+//        print("🏁 \(label): \(ms) ms")
     }
     return result
 }

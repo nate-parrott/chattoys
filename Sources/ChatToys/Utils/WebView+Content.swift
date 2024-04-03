@@ -10,15 +10,30 @@ private enum WebViewJSError: Error {
 }
 
 
+public extension FastHTMLProcessor {
+    static func fromWebView(_ webView: WKWebView) async throws -> FastHTMLProcessor {
+        guard let html = try await webView.fixed_evaluateJavascript("document.body.outerHTML") as? String else {
+            throw HTMLError.cantGetHTML
+        }
+        guard let url = await webView.url, let data = html.data(using: .utf8) else {
+            throw WebViewJSError.noResult
+        }
+        return try .init(url: url, data: data)
+    }
+}
+
 public extension HTMLProcessor {
     static func fromWebView(_ webView: WKWebView) async throws -> HTMLProcessor {
         guard let html = try await webView.fixed_evaluateJavascript("document.body.outerHTML") as? String else {
             throw HTMLError.cantGetHTML
         }
-        let url = await webView.url
+        guard let url = await webView.url else {
+            throw WebViewJSError.noResult
+        }
         return try .init(html: html, baseURL: url)
     }
 }
+
 
 extension WKWebView {
     func fixed_evaluateJavascript(_ script: String) async throws -> Any? {
