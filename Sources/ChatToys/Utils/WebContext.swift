@@ -66,6 +66,16 @@ public struct WebContext: Equatable, Codable {
         self.urlMode = urlMode
         self.query = query
     }
+
+    public static var stub: Self {
+        let count = 6
+        let pages = (0..<count).map { i in
+            var result = WebSearchResult.stub(id: i)
+            result.url = URL(string: "https://youtube.com/\(i)")!
+            return WebContext.Page(searchResult: result, markdown: "# Hello, world\nThis is the page content.")
+        }
+        return WebContext(pages: pages, urlMode: .keep, query: "example query")
+    }
 }
 
 extension WebContext.Page {

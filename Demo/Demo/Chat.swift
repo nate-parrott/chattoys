@@ -10,8 +10,8 @@ struct ChatDemo: View {
     var body: some View {
         VStack(spacing: 0) {
             ChatThreadView(
-                messages: messages, 
-                id: {_, index in index }, 
+                messages: messages,
+                id: {_, index in index },
                 messageView: { message in
                     TextMessageBubble(Text(message.displayText), isFromUser: message.role == .user)
                 },

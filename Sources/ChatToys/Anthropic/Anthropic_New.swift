@@ -1,8 +1,9 @@
 import Foundation
 
 // Uses new message-based claude API
-// TODO: implement streaming
 public struct ClaudeNewAPI {
+    static let DEBUG = false
+
     public enum Model: String, Equatable {
         case claudeInstant12 = "claude-instant-1.2"
         case claude2 = "claude-2"
@@ -69,8 +70,10 @@ extension ClaudeNewAPI: ChatLLM {
     public func complete(prompt: [LLMMessage]) async throws -> LLMMessage {
         let request = try createRequest(prompt: prompt, stream: false)
         let (data, response) = try await URLSession.shared.data(for: request)
-        if (response as? HTTPURLResponse)?.statusCode != 200 {
-            print("[Anthropic] Failed with error: \(String(data: data, encoding: .utf8)!)")
+        if Self.DEBUG {
+            if (response as? HTTPURLResponse)?.statusCode != 200 {
+                print("[Anthropic] Failed with error: \(String(data: data, encoding: .utf8)!)")
+            }
         }
         let resp = try JSONDecoder().decode(Response.self, from: data)
         guard let text = resp.content.first?.text else {
@@ -80,17 +83,19 @@ extension ClaudeNewAPI: ChatLLM {
     }
 
     public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
-//        return AsyncThrowingStream { cont in
-//            Task {
-//                do {
-//                    let res = try await self.complete(prompt: prompt)
-//                    cont.yield(res)
-//                    cont.finish()
-//                } catch {
-//                    cont.finish(throwing: error)
-//                }
-//            }
-//        }
+        if Self.DEBUG {
+            return AsyncThrowingStream { cont in
+                Task {
+                    do {
+                        let res = try await self.complete(prompt: prompt)
+                        cont.yield(res)
+                        cont.finish()
+                    } catch {
+                        cont.finish(throwing: error)
+                    }
+                }
+            }
+        }
 
         let request: URLRequest
         do {
@@ -105,6 +110,8 @@ extension ClaudeNewAPI: ChatLLM {
             var messages = [LLMMessage]()
 
             /*
+             Event formats:
+
              event: message_start
              data: {"type": "message_start", "message": {"id": "msg_1nZdL29xx5MUA1yADyHTEsnR8uuvGzszyY", "type": "message", "role": "assistant", "content": [], "model": "claude-3-opus-20240229", "stop_reason": null, "stop_sequence": null, "usage": {"input_tokens": 25, "output_tokens": 1}}}
 
@@ -278,6 +285,7 @@ extension Array where Element == LLMMessage {
             }
             messages.append(try message.claudeMessage())
         }
+        messages = messages.filter { !$0.isEmpty }
         return (system, messages: mergeContiguousMessagesWithSameRoles(messages: messages))
     }
 }
@@ -392,5 +400,22 @@ struct ClaudeMessage: Equatable, Codable {
             var media_type: String
             var data: String // base64
         }
+    }
+
+    // Empty messages must be removed
+    var isEmpty: Bool {
+        for content in content {
+            switch content.type {
+            case .image:
+                if content.source != nil {
+                    return false
+                }
+            case .text:
+                if content.text?.nilIfEmpty != nil {
+                    return false
+                }
+            }
+        }
+        return true
     }
 }

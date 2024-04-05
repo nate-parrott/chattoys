@@ -216,9 +216,8 @@ public class FastHTMLProcessor {
         if droppedAriaRoles.contains(role ?? "") {
             return nil
         }
-        let classes = element.attr("class")?.split(separator: " ") ?? []
-        if classes.contains("nomobile") {
-            // For wikipedia
+        let classes = (element.attr("class")?.split(separator: " ") ?? []).map { String($0) }
+        if classesToSkip.intersection(classes).count > 0 {
             return nil
         }
         let style = element.attr("style") ?? ""
@@ -245,6 +244,11 @@ public class FastHTMLProcessor {
         "iframe",
         "dialog",
         "button",
+    ])
+
+    private let classesToSkip = Set<String>([
+        "MuiFormControlLabel-root",
+        "nomobile", // For wikipedia
     ])
 
     private struct Rule {

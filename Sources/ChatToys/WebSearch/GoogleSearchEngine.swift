@@ -14,16 +14,18 @@ public struct GoogleSearchEngine: WebSearchEngine {
             URLQueryItem(name: "q", value: query),
 //            URLQueryItem(name: "gbv", value: "1"), // google basic version = 1 (no js)
         ]
+        let session = URLSession.shared // URLSession(configuration: .ephemeral)
         var request = URLRequest(url: urlComponents.url!)
-        request.httpShouldHandleCookies = false
-        request.setValue("application/json", forHTTPHeaderField: "Accept")
-        let chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 13_4) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+        request.httpShouldHandleCookies = true
+        request.setValue("text/html,application/xhtml+xml", forHTTPHeaderField: "Accept")
+        let chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
 //        let iosUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1"
         request.setValue(chromeUserAgent, forHTTPHeaderField: "User-Agent")
-        let (data, response) = try await URLSession.shared.data(for: request)
+        let (data, response) = try await session.data(for: request)
         guard let html = String(data: data, encoding: .utf8) else {
             throw SearchError.invalidHTML
         }
+        print(html)
         let baseURL = response.url ?? urlComponents.url!
 
         let t2 = CACurrentMediaTime()
