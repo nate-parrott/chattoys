@@ -48,4 +48,18 @@ extension WebContext {
         return WebContext(pages: response.hits.compactMap(\.asWebContextPage), urlMode: .truncate(100), query: query)
             .trimToFit(charLimit: charLimit)
     }
+
+    public static func fetchViaYoudotcomWithGoogleAdditions(query: String, key: String, charLimit: Int) async throws -> (WebContext, [WebSearchResult]) {
+        async let you_ = fetchViaYoudotcom(query: query, key: key, charLimit: charLimit)
+        async let google_ = GoogleSearchEngine().search(query: query)
+
+        var final = try await you_
+        let google = try await google_
+
+        if let googleHTML = google.html {
+            try? final.pages.insert(.fromHTML(result: WebSearchResult(url: .googleSearch(query), title: "Search results for '\(query)'", snippet: nil), html: googleHTML, urlMode: .truncate(100)), at: 0)
+        }
+
+        return (final, google.results)
+    }
 }

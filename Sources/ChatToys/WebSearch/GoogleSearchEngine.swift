@@ -25,17 +25,19 @@ public struct GoogleSearchEngine: WebSearchEngine {
         guard let html = String(data: data, encoding: .utf8) else {
             throw SearchError.invalidHTML
         }
-        print(html)
+//        print(html)
         let baseURL = response.url ?? urlComponents.url!
 
         let t2 = CACurrentMediaTime()
         let extracted = try extract(html: html, baseURL: baseURL, query: query)
-        print("[Timing] [GoogleSearch] Parsed at \(CACurrentMediaTime() - t2)")
+//        print("[Timing] [GoogleSearch] Parsed at \(CACurrentMediaTime() - t2)")
         
-        return extracted
+        var resp = extracted
+        resp.html = html
+        return resp
     }
 
-    private func extract(html: String, baseURL: URL, query: String) throws -> WebSearchResponse {
+    func extract(html: String, baseURL: URL, query: String) throws -> WebSearchResponse {
 //        let doc = try SwiftSoup.parse(html, baseURL.absoluteString)
         let doc = try Fuzi.HTMLDocument(string: html)
 

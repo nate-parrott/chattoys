@@ -25,6 +25,16 @@ struct ChatDemo: View {
                 sendAction: sendMessage
             )
         }
+        .contextMenu {
+            Button(action: clear) {
+                Text("Clear")
+            }
+        }
+    }
+
+    private func clear() {
+        messages = []
+        imageAttachment = nil
     }
 
     private func sendMessage() {

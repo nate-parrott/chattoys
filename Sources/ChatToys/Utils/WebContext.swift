@@ -97,6 +97,12 @@ extension WebContext.Page {
             return .init(searchResult: result, markdown: markdown)
         }
     }
+
+    static func fromHTML(result: WebSearchResult, html: String, urlMode: FastHTMLProcessor.URLMode) throws -> WebContext.Page {
+        let proc = try FastHTMLProcessor(url: result.url, data: html.data(using: .utf8)!)
+        let markdown = proc.markdown(urlMode: urlMode)
+        return .init(searchResult: result, markdown: markdown)
+    }
 }
 
 public extension WebContext {
