@@ -23,18 +23,19 @@ extension Array {
 
 extension String {
     public var byExtractingOnlyCodeBlocks: String {
-        if !starts(with: "```") {
+        var s = self.trimmed
+        if !s.starts(with: "```") {
             return self
         }
         for separator in ["```", "`"] {
-            let parts = self.components(separatedBy: separator)
+            let parts = s.components(separatedBy: separator)
             if parts.count == 1 {
                 continue
             }
             let code = parts.enumerated().filter { $0.offset % 2 == 1 }.map { $0.element }.joined(separator: "\n")
             return code.trimmingCharacters(in: CharacterSet(charactersIn: "`"))
         }
-        return self
+        return s
     }
 
     var capJson: String {
