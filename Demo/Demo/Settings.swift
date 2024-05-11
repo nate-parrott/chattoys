@@ -7,7 +7,7 @@ enum LLM: String, Equatable, Codable, CaseIterable {
     case gpt4
     case gpt4Vision
     case claude
-    case llama
+    case ollama
     case perplexityOnline7b
     case groq
 
@@ -15,8 +15,6 @@ enum LLM: String, Equatable, Codable, CaseIterable {
         let llm: LLM = .init(rawValue: UserDefaults.standard.string(forKey: "llm") ?? "") ?? .chatGPT
         let key = UserDefaults.standard.string(forKey: "key") ?? ""
         let orgId = UserDefaults.standard.string(forKey: "orgId") ?? ""
-        let groqKey = UserDefaults.standard.string(forKey: "groqKey") ?? ""
-        let llamaModel = UserDefaults.standard.string(forKey: "llamaModel") ?? ""
 
         switch llm {
         case .chatGPT, .chatGPT16k:
@@ -26,7 +24,7 @@ enum LLM: String, Equatable, Codable, CaseIterable {
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
         case .gpt4Vision:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4_vision_preview, maxTokens: 4096))
-        case .claude, .llama, .perplexityOnline7b, .groq:
+        case .claude, .ollama, .perplexityOnline7b, .groq:
             return nil
         }
     }
@@ -35,7 +33,7 @@ enum LLM: String, Equatable, Codable, CaseIterable {
         let llm: LLM = .init(rawValue: UserDefaults.standard.string(forKey: "llm") ?? "") ?? .chatGPT
         let key = UserDefaults.standard.string(forKey: "key") ?? ""
         let orgId = UserDefaults.standard.string(forKey: "orgId") ?? ""
-        let llamaModel = UserDefaults.standard.string(forKey: "llamaModel") ?? ""
+        let ollamaModel = UserDefaults.standard.string(forKey: "ollamaModel") ?? ""
         switch llm {
         case .chatGPT, .chatGPT16k:
             let model = (llm == .chatGPT16k) ? ChatGPT.Model.gpt35_turbo_16k : ChatGPT.Model.gpt35_turbo
@@ -44,8 +42,8 @@ enum LLM: String, Equatable, Codable, CaseIterable {
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
         case .claude:
             return ClaudeNewAPI(credentials: AnthropicCredentials(apiKey: key), options: .init(model: .claude3Haiku, printToConsole: true, responsePrefix: ""))
-        case .llama:
-            return LlamaCPP(modelName: llamaModel, tokenLimit: 512)
+        case .ollama:
+            return ChatGPT(credentials: .init(apiKey: "ollama"), options: .init(model: .custom(ollamaModel, 8192), baseURL: URL(string: "http://localhost:11434/v1/chat/completions")!))
         case .gpt4Vision:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4_vision_preview, maxTokens: 4096, printCost: false))
         case .perplexityOnline7b:
@@ -68,15 +66,15 @@ struct SettingsView: View {
     @AppStorage("llm") private var llm = LLM.chatGPT
     @AppStorage("key") private var key = ""
     @AppStorage("orgId") private var orgId = ""
-    @AppStorage("llamaModel") private var llamaModel = ""
     @AppStorage("bingKey") private var bingKey = ""
+    @AppStorage("ollamaModel") private var ollamaModel = ""
 
     var body: some View {
         Form {
             Section {
                 TextField("API key", text: $key)
                 TextField("Organization ID (OpenAI, optional)", text: $orgId)
-                TextField("Llama Model", text: $llamaModel)
+                TextField("Ollama Model", text: $ollamaModel)
                 Picker("LLM", selection: $llm) {
                     ForEach(LLM.allCases, id: \.self) {
                         Text($0.rawValue)
