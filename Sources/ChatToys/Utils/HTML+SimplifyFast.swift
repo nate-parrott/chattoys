@@ -9,7 +9,7 @@ public class FastHTMLProcessor {
         case truncate(Int)
     }
 
-    let doc: HTMLDocument
+    public let doc: HTMLDocument
     let baseURL: URL
 
     public init(url: URL, data: Data) throws {
@@ -54,14 +54,30 @@ public class FastHTMLProcessor {
         case worst
     }
 
-    public func markdown(urlMode: URLMode, hideImages: Bool = false) -> String {
+    public var title: String? {
+        doc.title
+    }
+
+    public var ogImage: URL? {
+        guard let element = doc.css("meta[property='og:image']").first else {
+            return nil
+        }
+        guard let urlStr = element.attr("content"),
+              let url = URL(string: urlStr, relativeTo: baseURL)
+        else { return nil }
+        return url
+    }
+
+    public func markdown(urlMode: URLMode, hideImages: Bool = false, moveJsonLDToFront: Bool = true) -> String {
         guard let body = doc.body else {
             return ""
         }
         var doc = MarkdownDoc()
 
-        // First, look for special semantic JSON LD elements and move them to the front:
-        prependJsonLDData(urlMode: urlMode, toDoc: &doc)
+        if moveJsonLDToFront {
+            // First, look for special semantic JSON LD elements and move them to the front:
+            prependJsonLDData(urlMode: urlMode, toDoc: &doc)
+        }
 
         // Then, detect main content elements and conver them to markdown:
         let mainElements: [Fuzi.XMLElement] = {

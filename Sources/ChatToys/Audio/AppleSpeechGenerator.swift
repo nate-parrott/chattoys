@@ -1,6 +1,8 @@
 import AVFoundation
 
 public actor AppleSpeechGenerator: NSObject, SpeechGenerator {
+    public var managesAudioSession = true
+
     private lazy var synthesizer: AVSpeechSynthesizer = {
         let synthesizer = AVSpeechSynthesizer()
         synthesizer.delegate = self
@@ -10,8 +12,9 @@ public actor AppleSpeechGenerator: NSObject, SpeechGenerator {
         return synthesizer
     }()
 
-    public override init() {
+    public init(managesAudioSession: Bool = true) {
         super.init()
+        self.managesAudioSession = managesAudioSession
     }
 
     // MARK: - API
@@ -60,11 +63,13 @@ public actor AppleSpeechGenerator: NSObject, SpeechGenerator {
             if speaking != oldValue {
                 do {
                     #if os(iOS)
-                    if speaking {
-                        try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
-                        try AVAudioSession.sharedInstance().setActive(true)
-                    } else {
-                        try AVAudioSession.sharedInstance().setActive(false)
+                    if managesAudioSession {
+                        if speaking {
+                            try AVAudioSession.sharedInstance().setCategory(.playback, mode: .default)
+                            try AVAudioSession.sharedInstance().setActive(true)
+                        } else {
+                            try AVAudioSession.sharedInstance().setActive(false)
+                        }
                     }
                     #endif
                 } catch {

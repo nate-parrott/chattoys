@@ -19,7 +19,7 @@ public struct AnimatedEllipses: View {
         HStack(spacing: 3) {
             ForEach(0..<3) { i in
                 Circle()
-                    .fill(Color.black)
+                    .fill(.foreground)
                     .frame(width: 8, height: 8)
                     .opacity(appeared ? 1 : 0.3)
                     .animation(
