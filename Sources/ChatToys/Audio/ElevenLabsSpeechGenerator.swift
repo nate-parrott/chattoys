@@ -103,7 +103,7 @@ public actor ElevenLabsSpeechGenerator: SpeechGenerator {
         do {
             // Construct request and download MP3 to data
 
-            guard let url = URL(string: "https://api.elevenlabs.io/v1/text-to-speech/\(options.voiceId)/stream") else {
+            guard let url = URL(string: "https://api.elevenlabs.io/v1/text-to-speech/\(options.voiceId)") else {
                 throw Errors.invalidVoiceIdFormat
             }
             var request = URLRequest(url: url)
