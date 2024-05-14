@@ -6,6 +6,7 @@ enum LLM: String, Equatable, Codable, CaseIterable {
     case chatGPT16k
     case gpt4
     case gpt4Vision
+    case gpt4o
     case claude
     case ollama
     case perplexityOnline7b
@@ -24,6 +25,8 @@ enum LLM: String, Equatable, Codable, CaseIterable {
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
         case .gpt4Vision:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4_vision_preview, maxTokens: 4096))
+        case .gpt4o:
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4o, maxTokens: 4096))
         case .claude, .ollama, .perplexityOnline7b, .groq:
             return nil
         }
@@ -46,6 +49,8 @@ enum LLM: String, Equatable, Codable, CaseIterable {
             return ChatGPT(credentials: .init(apiKey: "ollama"), options: .init(model: .custom(ollamaModel, 8192), baseURL: URL(string: "http://localhost:11434/v1/chat/completions")!))
         case .gpt4Vision:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4_vision_preview, maxTokens: 4096, printCost: false))
+        case .gpt4o:
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt_4o, maxTokens: 4096, printCost: false))
         case .perplexityOnline7b:
             return PerplexityLLM(credentials: .init(apiKey: key), options: .init(model: .pplx7bOnline))
         case .groq:

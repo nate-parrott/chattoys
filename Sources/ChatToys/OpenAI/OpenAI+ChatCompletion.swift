@@ -20,6 +20,7 @@ public struct ChatGPT {
         case gpt4_turbo // includes vision
         case gpt4_32k
         case gpt4_vision_preview
+        case gpt4_o
         case custom(String, Int)
 
         var name: String {
@@ -39,6 +40,7 @@ public struct ChatGPT {
             case .gpt4_32k:
                 return "gpt-4-32k"
             case .gpt4_vision_preview: return "gpt-4-vision-preview"
+            case .gpt4_o: return "gpt-4o"
             }
         }
 
@@ -48,7 +50,7 @@ public struct ChatGPT {
             case .gpt35_turbo_16k, .gpt35_turbo_0125: return 16384
             case .gpt4: return 8192
             case .gpt4_32k: return 32768
-            case .gpt4_turbo_preview, .gpt4_turbo, .gpt4_vision_preview: return 128_000
+            case .gpt4_turbo_preview, .gpt4_turbo, .gpt4_vision_preview, .gpt4_o: return 128_000
             case .custom(_, let limit): return limit
             }
         }
@@ -122,7 +124,7 @@ extension ChatGPT: ChatLLM {
         var content: [Content] // Decode either a string or an array. When encoding, encode as string if possible.
         var name: String? // For function call responses (role=function)
         var function_call: LLMMessage.FunctionCall?
-        
+
         var contentAsText: String {
             content.compactMap { $0.text }.joined()
         }
