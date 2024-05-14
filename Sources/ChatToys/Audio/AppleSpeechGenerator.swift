@@ -17,6 +17,10 @@ public actor AppleSpeechGenerator: NSObject, SpeechGenerator {
         self.managesAudioSession = managesAudioSession
     }
 
+    public func setManagesAudioSession(_ manages: Bool) async {
+        managesAudioSession = manages
+    }
+
     // MARK: - API
 
     public func speak(_ text: String) {

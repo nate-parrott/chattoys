@@ -8,14 +8,17 @@ import SwiftUI
 //    func awaitFinishedSpeaking() async
 //}
 
-enum TTSModel: String {
+enum TTSModel: String, CaseIterable {
     case apple = "apple"
     case openai = "openai"
+    case eleven = "eleven"
 
     var model: any SpeechGenerator {
         switch self {
         case .apple:
             return AppleSpeechGenerator()
+        case .eleven:
+            return ElevenLabsSpeechGenerator(apiKey: UserDefaults.standard.string(forKey: "elevenLabsKey") ?? "")
         case .openai:
             let key = UserDefaults.standard.string(forKey: "key") ?? ""
             let orgId = UserDefaults.standard.string(forKey: "orgId") ?? ""
@@ -54,6 +57,7 @@ struct TextToSpeechDemo: View {
             Section {
                 Picker("Model", selection: $model) {
                     Text("Apple").tag(TTSModel.apple)
+                    Text("Eleven").tag(TTSModel.eleven)
                     Text("OpenAI").tag(TTSModel.openai)
                 }
                 .pickerStyle(SegmentedPickerStyle())

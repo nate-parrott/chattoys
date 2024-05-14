@@ -68,6 +68,7 @@ struct SettingsView: View {
     @AppStorage("orgId") private var orgId = ""
     @AppStorage("bingKey") private var bingKey = ""
     @AppStorage("ollamaModel") private var ollamaModel = ""
+    @AppStorage("elevenLabsKey") private var elevenLabsKey = ""
 
     var body: some View {
         Form {
@@ -75,6 +76,7 @@ struct SettingsView: View {
                 TextField("API key", text: $key)
                 TextField("Organization ID (OpenAI, optional)", text: $orgId)
                 TextField("Ollama Model", text: $ollamaModel)
+                TextField("ElevenLabs Key", text: $elevenLabsKey)
                 Picker("LLM", selection: $llm) {
                     ForEach(LLM.allCases, id: \.self) {
                         Text($0.rawValue)
