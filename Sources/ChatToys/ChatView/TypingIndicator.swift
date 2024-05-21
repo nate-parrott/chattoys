@@ -22,6 +22,7 @@ public struct AnimatedEllipses: View {
                     .fill(.foreground)
                     .frame(width: 8, height: 8)
                     .opacity(appeared ? 1 : 0.3)
+                    .offset(x: 0, y: appeared ? 0 : 8)
                     .animation(
                         .easeInOut(duration: 0.3)
                         .repeatForever(autoreverses: true)

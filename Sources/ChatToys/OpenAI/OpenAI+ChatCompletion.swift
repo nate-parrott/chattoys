@@ -18,6 +18,7 @@ public struct ChatGPT {
         case gpt4
         case gpt4_turbo_preview
         case gpt4_turbo // includes vision
+        case gpt4_omni
         case gpt4_32k
         case gpt4_vision_preview
         case custom(String, Int)
@@ -30,6 +31,8 @@ public struct ChatGPT {
                 return "gpt-3.5-turbo-16k"
             case .gpt35_turbo_0125:
                 return "gpt-3.5-turbo-0125"
+            case .gpt4_omni:
+                return "gpt-4o"
             case .custom(let string, _):
                 return string
             case .gpt4:
@@ -48,7 +51,7 @@ public struct ChatGPT {
             case .gpt35_turbo_16k, .gpt35_turbo_0125: return 16384
             case .gpt4: return 8192
             case .gpt4_32k: return 32768
-            case .gpt4_turbo_preview, .gpt4_turbo, .gpt4_vision_preview: return 128_000
+            case .gpt4_turbo_preview, .gpt4_turbo, .gpt4_vision_preview, .gpt4_omni: return 128_000
             case .custom(_, let limit): return limit
             }
         }

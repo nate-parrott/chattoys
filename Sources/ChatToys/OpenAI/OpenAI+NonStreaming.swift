@@ -83,6 +83,7 @@ extension ChatGPT.Model {
         case .gpt35_turbo: return (0.15, 0.2)
         case .gpt35_turbo_16k: return (0.3, 0.4)
         case .gpt4: return (3, 6)
+        case .gpt4_omni: return (0.5, 1.5)
         case .gpt4_32k: return (6, 12)
         case .gpt35_turbo_0125: return (0.05, 0.15)
         case .gpt4_turbo_preview: return (1, 3)
