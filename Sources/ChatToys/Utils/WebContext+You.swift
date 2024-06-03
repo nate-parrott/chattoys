@@ -43,8 +43,8 @@ extension WebContext {
         urlReq.setValue("application/json", forHTTPHeaderField: "Content-Type")
         urlReq.setValue(key, forHTTPHeaderField: "X-API-Key")
         let (data, _) = try await URLSession.shared.data(for: urlReq)
+        print("Response: \n\(String(data: data, encoding: .utf8) ?? "None")")
         let response = try JSONDecoder().decode(YouResponse.self, from: data)
-        print("Response: \n\(response)")
         return WebContext(pages: response.hits.compactMap(\.asWebContextPage), urlMode: .truncate(100), query: query)
             .trimToFit(charLimit: charLimit)
     }

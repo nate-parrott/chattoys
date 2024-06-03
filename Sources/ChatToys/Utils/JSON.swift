@@ -38,7 +38,7 @@ extension String {
         return s
     }
 
-    var capJson: String {
+    public var capJson: String {
         enum Delimiter: String {
             case object = "{"
             case array = "["
@@ -78,26 +78,39 @@ extension String {
         return cappedString
     }
 
-    var capJavascript: String {
+    public var capJavascript: String {
         enum Delimiter: String {
             case paren = "("
             case object = "{"
             case array = "["
-            case string = "\""
+            case doubleQuoteString = "\""
+            case singleQuoteString = "'"
+            case tildeString = "`"
         }
         var delimiterStack = [Delimiter]()
 
         var prevChar: Character?
         for char in self {
-            if delimiterStack.last == .string {
+            if delimiterStack.last == .doubleQuoteString {
                 if char == "\"", let prevChar, prevChar != "\\" {
+                    _ = delimiterStack.popLast()
+                }
+            } else if delimiterStack.last == .singleQuoteString {
+                if char == "'", let prevChar, prevChar != "\\" {
+                    _ = delimiterStack.popLast()
+                }
+            } else if delimiterStack.last == .tildeString {
+                if char == "`", let prevChar, prevChar != "\\" {
                     _ = delimiterStack.popLast()
                 }
             } else {
                 switch char {
+                case "(": delimiterStack.append(.paren)
                 case "{": delimiterStack.append(.object)
                 case "[": delimiterStack.append(.array)
-                case "\"": delimiterStack.append(.string)
+                case "\"": delimiterStack.append(.doubleQuoteString)
+                case "'": delimiterStack.append(.singleQuoteString)
+                case "`": delimiterStack.append(.tildeString)
                 case "}", "]": _ = delimiterStack.popLast()
                 default: ()
                 }
@@ -112,7 +125,9 @@ extension String {
         for delim in delimiterStack.reversed() {
             switch delim {
             case .array: cappedString += "]"
-            case .string: cappedString += "\""
+            case .doubleQuoteString: cappedString += "\""
+            case .singleQuoteString: cappedString += "'"
+            case .tildeString: cappedString += "`"
             case .object: cappedString += "}"
             case .paren: cappedString += ")"
             }

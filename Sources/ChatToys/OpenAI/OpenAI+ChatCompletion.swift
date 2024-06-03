@@ -224,12 +224,15 @@ extension ChatGPT: ChatLLM {
     }
 
     func _completeStreaming(prompt: [LLMMessage], functions: [LLMFunction]) -> AsyncThrowingStream<LLMMessage, Error> {
+        // OpenRouter supports response prefill by appending an `assistant` message to the end of the request
+        let responsePrefill: String = (prompt.last?.role == .assistant ? prompt.last?.content : nil) ?? ""
+
         // `printCost` requires not streaming the response.
         if options.printCost {
             return AsyncThrowingStream { cont in
                 Task {
                     do {
-                        let result = try await _complete(prompt: prompt, functions: functions)
+                        let result = try await _complete(prompt: prompt, functions: functions, responsePrefill: responsePrefill)
                         cont.yield(result)
                         cont.finish()
                     } catch {
@@ -248,7 +251,7 @@ extension ChatGPT: ChatLLM {
        return AsyncThrowingStream { continuation in
            let src = EventSource(urlRequest: request)
 
-           var message = Message(role: .assistant, content: [.text("")])
+           var message = Message(role: .assistant, content: [.text(responsePrefill)])
 
            src.onComplete { statusCode, reconnect, error in
                if let statusCode, statusCode / 100 == 2 {

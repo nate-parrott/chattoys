@@ -30,7 +30,7 @@ extension ChatGPT {
         var usage: Usage?
     }
 
-    func _complete(prompt: [LLMMessage], functions: [LLMFunction] = []) async throws -> LLMMessage {
+    func _complete(prompt: [LLMMessage], functions: [LLMFunction] = [], responsePrefill: String = "") async throws -> LLMMessage {
         let request = createChatRequest(prompt: prompt, functions: functions, stream: false)
         let (data, resp) = try await URLSession.shared.data(for: request)
 //        print("resp: \(String(data: data, encoding: .utf8)!)")
@@ -73,7 +73,9 @@ extension ChatGPT {
             """)
         }
 
-        return result.asLLMMessage
+        var llmMessage = result.asLLMMessage
+        llmMessage.content = responsePrefill + llmMessage.content
+        return llmMessage
     }
 }
 
