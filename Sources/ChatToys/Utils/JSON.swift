@@ -111,7 +111,7 @@ extension String {
                 case "\"": delimiterStack.append(.doubleQuoteString)
                 case "'": delimiterStack.append(.singleQuoteString)
                 case "`": delimiterStack.append(.tildeString)
-                case "}", "]": _ = delimiterStack.popLast()
+                case "}", "]", ")": _ = delimiterStack.popLast()
                 default: ()
                 }
             }
