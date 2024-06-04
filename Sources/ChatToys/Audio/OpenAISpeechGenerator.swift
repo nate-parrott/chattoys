@@ -40,6 +40,11 @@ public actor OpenAISpeechGenerator: SpeechGenerator {
         managesAudioSession = manages
     }
 
+    public func setOnReadyToSpeak(_ block: (() -> Void)?) {
+        self.onReadyToSpeak = block
+    }
+    public var onReadyToSpeak: (() -> Void)?
+
     //  MARK: - SpeechGenerator
 
     public func speak(_ text: String) async { // Adds to queue; does not wait until playback finishes
@@ -100,6 +105,14 @@ public actor OpenAISpeechGenerator: SpeechGenerator {
             let tempURL = data.writeToTemporaryDirectory(withExtension: "mp3")
             let playerItem = AVPlayerItem(url: tempURL)
             queuePlayer.insert(playerItem, after: nil)
+            
+            NotificationCenter.default.addObserver(forName: AVPlayerItem.didPlayToEndTimeNotification, object: playerItem, queue: .main) { [weak self] item in
+                Task {
+                    await self?._finishedPlayingItem(item.object as! AVPlayerItem)
+                }
+            }
+
+            onReadyToSpeak?()
             await queuePlayer.play()
         }
          catch {
@@ -132,6 +145,12 @@ public actor OpenAISpeechGenerator: SpeechGenerator {
     // MARK: - Finish tracking
     var onFinishBlocks = [() -> Void]()
     var tasks = [Task<Void, Never>]()
+
+    private func _finishedPlayingItem(_ item: AVPlayerItem) {
+        if queuePlayer.items().last == item || queuePlayer.items().count == 0 {
+            finishedSpeaking()
+        }
+    }
 
     private func finishedSpeaking() {
         speaking = false

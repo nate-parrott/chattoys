@@ -21,6 +21,11 @@ public actor AppleSpeechGenerator: NSObject, SpeechGenerator {
         managesAudioSession = manages
     }
 
+    public func setOnReadyToSpeak(_ block: (() -> Void)?) {
+        self.onReadyToSpeak = block
+    }
+    public var onReadyToSpeak: (() -> Void)?
+
     // MARK: - API
 
     public func speak(_ text: String) {
@@ -43,6 +48,7 @@ public actor AppleSpeechGenerator: NSObject, SpeechGenerator {
 //        // Assign the voice to the utterance.
 //        utterance.voice = voice
 
+        onReadyToSpeak?()
         synthesizer.speak(utterance)
     }
 
