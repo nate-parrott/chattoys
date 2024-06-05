@@ -89,8 +89,11 @@ extension String {
         }
         var delimiterStack = [Delimiter]()
 
+        // TODO: remove /* these */ kind of comments too
+        let codeWithoutComments = self.split(separator: "\n").filter { !$0.starts(with: "//") }.joined(separator: "\n")
+
         var prevChar: Character?
-        for char in self {
+        for char in codeWithoutComments {
             if delimiterStack.last == .doubleQuoteString {
                 if char == "\"", let prevChar, prevChar != "\\" {
                     _ = delimiterStack.popLast()
