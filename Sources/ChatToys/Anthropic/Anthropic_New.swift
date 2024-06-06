@@ -4,12 +4,24 @@ import Foundation
 public struct ClaudeNewAPI {
     static let DEBUG = false
 
-    public enum Model: String, Equatable {
-        case claudeInstant12 = "claude-instant-1.2"
-        case claude2 = "claude-2"
-        case claude3Haiku = "claude-3-haiku-20240307" // small
-        case claude3Sonnet = "claude-3-sonnet-20240229" // medium
-        case claude3Opus = "claude-3-opus-20240229" // large
+    public enum Model: Equatable {
+        case claudeInstant12
+        case claude2
+        case claude3Haiku // small
+        case claude3Sonnet // medium
+        case claude3Opus // large
+        case custom(String /* model id */, Int /* token limit */)
+
+        var modelId: String {
+            switch self {
+            case .claudeInstant12: return "claude-instant-1.2"
+            case .claude2: return "claude-2"
+            case .claude3Haiku: return "claude-3-haiku-20240307"
+            case .claude3Sonnet: return "claude-3-sonnet-20240229"
+            case .claude3Opus: return "claude-3-opus-20240229"
+            case .custom(let id, _): return id
+            }
+        }
     }
 
     public struct Options {
@@ -60,6 +72,7 @@ extension ClaudeNewAPI: ChatLLM {
         switch options.model {
         case .claudeInstant12, .claude2: return 100_000
         case .claude3Sonnet, .claude3Opus, .claude3Haiku: return 200_000
+        case .custom(_, let limit): return limit
         }
     }
 
@@ -249,7 +262,7 @@ extension ClaudeNewAPI: ChatLLM {
         var payload = Request(
             messages: messages,
             system: system,
-            model: options.model.rawValue,
+            model: options.model.modelId,
             max_tokens: options.maxTokens,
             stop_sequences: options.stopSequences.nilIfEmptyArray,
             temperature: options.temperature,
