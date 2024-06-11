@@ -18,7 +18,7 @@ public struct WebContext: Equatable, Codable {
             }
 
             lines.append(markdown)
-            return lines.joined(separator: "n")
+            return lines.joined(separator: "\n")
         }
     }
     public var pages: [Page]
