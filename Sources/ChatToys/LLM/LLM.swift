@@ -34,6 +34,11 @@ public struct LLMMessage: Equatable, Codable {
         public var name: String
         public var arguments: String // as json
 
+        public init(name: String, arguments: String) {
+            self.name = name
+            self.arguments = arguments
+        }
+
         public var argumentsJson: Any? {
             try? JSONSerialization.jsonObject(with: arguments.data(using: .utf8)!)
         }
@@ -43,6 +48,11 @@ public struct LLMMessage: Equatable, Codable {
                 return val
             }
             return nil
+        }
+
+        public func decodeArguments<T: Codable>(as kind: T.Type, stream: Bool) -> T? {
+            let args = stream ? self.arguments.capJson : self.arguments
+            return try? JSONDecoder().decode(kind, from: Data(args.utf8))
         }
     }
 
