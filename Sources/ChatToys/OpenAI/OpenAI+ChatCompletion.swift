@@ -328,7 +328,10 @@ extension ChatGPT: ChatLLM {
 
 private extension LLMMessage {
     var asChatGPT: ChatGPT.Message {
-        var msg = ChatGPT.Message(role: role.asChatGPT, content: [], functionCall: functionCall, nameOfFunctionThatProduced: nameOfFunctionThatProduced)
+        if let functionResp = functionResponses.first {
+            return .init(role: .function, content: [.text(functionResp.text)], nameOfFunctionThatProduced: functionResp.functionName)
+        }
+        var msg = ChatGPT.Message(role: role.asChatGPT, content: [], functionCall: functionCall)
         for image in images {
             msg.content.append(.image(url: image.url.absoluteString, detail: image.detail ?? .auto))
         }

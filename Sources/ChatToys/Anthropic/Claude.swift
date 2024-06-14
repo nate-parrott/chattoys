@@ -1,7 +1,19 @@
 import Foundation
+import AnyCodable
+
+public struct AnthropicCredentials {
+    var apiKey: String
+    var orgId: String?
+
+    public init(apiKey: String) {
+        self.apiKey = apiKey
+    }
+}
+
+public typealias ClaudeNewAPI = Claude
 
 // Uses new message-based claude API
-public struct ClaudeNewAPI {
+public struct Claude {
     static let DEBUG = false
 
     public enum Model: Equatable {
@@ -53,8 +65,8 @@ public struct ClaudeNewAPI {
     }
 }
 
-extension ClaudeNewAPI: ChatLLM {
-    private struct Request: Codable {
+extension Claude: ChatLLM, FunctionCallingLLM {
+    private struct Request: Encodable {
         var messages: [ClaudeMessage]
         var system: String?
         var model: String
@@ -62,6 +74,7 @@ extension ClaudeNewAPI: ChatLLM {
         var stop_sequences: [String]?
         var temperature: Double
         var stream: Bool
+        var tools: [ClaudeTool] = []
     }
 
     private struct Response: Codable {
@@ -80,8 +93,18 @@ extension ClaudeNewAPI: ChatLLM {
         case emptyResponseText
     }
 
+    // MARK: - ChatLLM
     public func complete(prompt: [LLMMessage]) async throws -> LLMMessage {
-        let request = try createRequest(prompt: prompt, stream: false)
+        try await complete(prompt: prompt, functions: [])
+    }
+
+    public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
+        completeStreaming(prompt: prompt, functions: [])
+    }
+
+    // MARK: - FunctionCallingLLM
+    public func complete(prompt: [LLMMessage], functions: [LLMFunction]) async throws -> LLMMessage {
+        let request = try createRequest(prompt: prompt, stream: false, functions: functions)
         let (data, response) = try await URLSession.shared.data(for: request)
         if Self.DEBUG {
             if (response as? HTTPURLResponse)?.statusCode != 200 {
@@ -89,18 +112,22 @@ extension ClaudeNewAPI: ChatLLM {
             }
         }
         let resp = try JSONDecoder().decode(Response.self, from: data)
-        guard let text = resp.content.first?.text else {
-            throw ClaudeError.emptyResponseText
-        }
-        return LLMMessage(role: .assistant, content: options.responsePrefix + text)
+        let text = resp.content.first(where: { $0.type == .text })?.text ?? ""
+        let functionCalls = resp.content.filter { $0.type == .tool_use }.compactMap { $0.asFunctionCall }
+//        guard let text = resp.content.first?.text else {
+//            throw ClaudeError.emptyResponseText
+//        }
+
+        return LLMMessage(assistantMessageWithContent: options.responsePrefix + text, functionCalls: functionCalls)
     }
 
-    public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
-        if Self.DEBUG {
+    public func completeStreaming(prompt: [LLMMessage], functions: [LLMFunction]) -> AsyncThrowingStream<LLMMessage, Error> {
+        // TODO: Implement function call streaming
+        if Self.DEBUG || functions.count > 0 {
             return AsyncThrowingStream { cont in
                 Task {
                     do {
-                        let res = try await self.complete(prompt: prompt)
+                        let res = try await self.complete(prompt: prompt, functions: functions)
                         cont.yield(res)
                         cont.finish()
                     } catch {
@@ -112,7 +139,7 @@ extension ClaudeNewAPI: ChatLLM {
 
         let request: URLRequest
         do {
-            request = try createRequest(prompt: prompt, stream: true)
+            request = try createRequest(prompt: prompt, stream: true, functions: functions)
         } catch {
             return AsyncThrowingStream { $0.finish(throwing: error) }
         }
@@ -162,8 +189,9 @@ extension ClaudeNewAPI: ChatLLM {
             }
 
             struct ContentDelta: Codable {
-                var type: String // e.g. text_delta
+                var type: String // e.g. text_delta or input_json_delta
                 var text: String?
+                var partial_json: String?
             }
 
             func modifyLastMessageAndYield(_ block: (inout LLMMessage) -> Void) {
@@ -257,7 +285,7 @@ extension ClaudeNewAPI: ChatLLM {
     }
     // MARK: - Helpers
 
-    private func createRequest(prompt: [LLMMessage], stream: Bool) throws -> URLRequest {
+    private func createRequest(prompt: [LLMMessage], stream: Bool, functions: [LLMFunction]) throws -> URLRequest {
         let (system, messages) = try prompt.convertToAnthropicPrompt()
         var payload = Request(
             messages: messages,
@@ -266,7 +294,8 @@ extension ClaudeNewAPI: ChatLLM {
             max_tokens: options.maxTokens,
             stop_sequences: options.stopSequences.nilIfEmptyArray,
             temperature: options.temperature,
-            stream: stream
+            stream: stream,
+            tools: functions.map(\.asClaudeTool)
         )
         if let prefix = options.responsePrefix.nilIfEmpty {
             payload.messages.append(.init(role: .assistant, content: [.init(type: .text, text: prefix)]))
@@ -328,6 +357,12 @@ extension LLMMessage {
             }
             m.content.append(claudeImage)
         }
+        for call in functionCalls {
+            m.content.append(.init(type: .tool_use, id: call.id, name: call.name, input: call.argumentsAsAnyCodable))
+        }
+        for resp in functionResponses {
+            m.content.append(.init(type: .tool_result, tool_use_id: resp.id, content: resp.text))
+        }
         // If no images, or text is non-empty, add the text block
         if m.content.isEmpty || content.nilIfEmpty != nil {
             m.content.append(.init(type: .text, text: content))
@@ -382,9 +417,33 @@ extension LLMMessage.Role {
     }
 }
 
+struct ClaudeTool: Equatable, Encodable {
+    var name: String
+    var description: String
+    var input_schema: LLMFunction.JsonSchema
+}
+
+extension LLMFunction {
+    var asClaudeTool: ClaudeTool {
+        .init(name: name, description: description, input_schema: parameters)
+    }
+}
+
 struct ClaudeMessage: Equatable, Codable {
     var role: ClaudeRole
     var content: [Content]
+
+    /*
+     {
+                         "type": "tool_use",
+                         "id": "toolu_01A09q90qw90lq917835lq9",
+                         "name": "get_weather",
+                         "input": {
+                             "location": "San Francisco, CA",
+                             "unit": "celsius"
+                         }
+                     }
+     */
 
     struct Content: Equatable, Codable {
         /*
@@ -400,18 +459,32 @@ struct ClaudeMessage: Equatable, Codable {
          */
 
         enum ContentType: String, Equatable, Codable {
-            case image
             case text
+            case image
+            case tool_use
+            case tool_result
         }
 
         var type: ContentType
-        var text: String?
-        var source: Source?
+        var text: String? // For type = text
+        var source: Source? // For type = image
+        var id: String? // For type = tool_use
+        var name: String? // For type=tool_use
+        var input: AnyCodable? // For type=tool_use
+        var tool_use_id: String? // For type=tool_result
+        var content: String? // For type=tool_result
 
         struct Source: Equatable, Codable {
             var type: String
             var media_type: String
             var data: String // base64
+        }
+
+        var asFunctionCall: LLMMessage.FunctionCall? {
+            if type == .tool_use, let id, let name {
+                return LLMMessage.FunctionCall(id: id, name: name, arguments: input?.jsonString ?? "{}")
+            }
+            return nil
         }
     }
 
@@ -425,6 +498,14 @@ struct ClaudeMessage: Equatable, Codable {
                 }
             case .text:
                 if content.text?.nilIfEmpty != nil {
+                    return false
+                }
+            case .tool_use:
+                if content.id != nil {
+                    return false
+                }
+            case .tool_result:
+                if content.content != nil {
                     return false
                 }
             }

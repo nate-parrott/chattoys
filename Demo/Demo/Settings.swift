@@ -24,7 +24,9 @@ enum LLM: String, Equatable, Codable, CaseIterable {
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
         case .gpt4Vision:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4_vision_preview, maxTokens: 4096))
-        case .claude, .ollama, .perplexityOnline7b, .groq:
+        case .claude:
+            return Claude(credentials: AnthropicCredentials(apiKey: key), options: .init(model: .claude3Haiku, printToConsole: true, responsePrefix: ""))
+        case .ollama, .perplexityOnline7b, .groq:
             return nil
         }
     }

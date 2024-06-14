@@ -107,7 +107,7 @@ struct FunctionCallingDemo: View {
                     }
                     if let fn = incoming?.functionCall {
                         let res = try await self.tools.handle(functionCall: fn)
-                        received(message: .init(role: .function, content: res, nameOfFunctionThatProduced: fn.name), new: true)
+                        received(message: .init(functionResponses: [.init(id: fn.id, functionName: fn.name, text: res)]), new: true)
                     } else {
                         break
                     }

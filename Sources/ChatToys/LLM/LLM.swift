@@ -1,3 +1,4 @@
+import AnyCodable
 import Foundation
 
 public struct LLMMessage: Equatable, Codable {
@@ -5,13 +6,52 @@ public struct LLMMessage: Equatable, Codable {
         case system
         case user
         case assistant
-        case function // OpenAI only
+        case function
     }
 
-    public var role: Role
-    public var content: String
-    public var functionCall: FunctionCall?
-    public var nameOfFunctionThatProduced: String?
+    public struct FunctionCall: Equatable, Codable, Hashable {
+        public var id: String?
+        public var name: String
+        public var arguments: String // as json
+
+        public init(id: String? = nil, name: String, arguments: String) {
+            self.id = id
+            self.name = name
+            self.arguments = arguments
+        }
+
+        public var argumentsJson: Any? {
+            try? JSONSerialization.jsonObject(with: arguments.data(using: .utf8)!)
+        }
+
+        public var argumentsAsAnyCodable: AnyCodable? {
+            try? JSONDecoder().decode(AnyCodable.self, from: arguments.data(using: .utf8)!)
+        }
+
+        public func argument<T>(name: String, type: T.Type) -> T? {
+            if let params = argumentsJson as? [String: Any], let val = params[name] as? T {
+                return val
+            }
+            return nil
+        }
+
+        public func decodeArguments<T: Codable>(as kind: T.Type, stream: Bool) -> T? {
+            let args = stream ? self.arguments.capJson : self.arguments
+            return try? JSONDecoder().decode(kind, from: Data(args.utf8))
+        }
+    }
+
+    public struct FunctionResponse: Equatable, Codable {
+        var id: String?
+        var functionName: String
+        var text: String
+
+        public init(id: String?, functionName: String, text: String) {
+            self.id = id
+            self.functionName = functionName
+            self.text = text
+        }
+    }
 
     public struct Image: Equatable, Codable {
         public enum Detail: String, Equatable, Codable {
@@ -28,39 +68,72 @@ public struct LLMMessage: Equatable, Codable {
         }
     }
 
+    public var role: Role
+    public var content: String
     public var images = [Image]() // For multimodal models. URLs can be base64
 
-    public struct FunctionCall: Equatable, Codable, Hashable {
-        public var name: String
-        public var arguments: String // as json
+    // For role=assistant
+    public var functionCalls: [FunctionCall] = []
 
-        public init(name: String, arguments: String) {
-            self.name = name
-            self.arguments = arguments
-        }
+    // For role=function
+    public var functionResponses: [FunctionResponse] = []
 
-        public var argumentsJson: Any? {
-            try? JSONSerialization.jsonObject(with: arguments.data(using: .utf8)!)
-        }
+    // MARK: Initializers
 
-        public func argument<T>(name: String, type: T.Type) -> T? {
-            if let params = argumentsJson as? [String: Any], let val = params[name] as? T {
-                return val
-            }
-            return nil
-        }
-
-        public func decodeArguments<T: Codable>(as kind: T.Type, stream: Bool) -> T? {
-            let args = stream ? self.arguments.capJson : self.arguments
-            return try? JSONDecoder().decode(kind, from: Data(args.utf8))
-        }
+    public init(assistantMessageWithContent content: String, functionCalls: [FunctionCall] = []) {
+        self.role = .assistant
+        self.content = content
+        self.functionCalls = functionCalls
     }
 
-    public init(role: Role, content: String, functionCall: FunctionCall? = nil, nameOfFunctionThatProduced: String? = nil) {
+    public init(functionResponses: [FunctionResponse]) {
+        self.role = .function
+        self.functionResponses = functionResponses
+        self.content = ""
+    }
+
+    public init(role: Role, content: String) {
         self.role = role
         self.content = content
-        self.functionCall = functionCall
-        self.nameOfFunctionThatProduced = nameOfFunctionThatProduced
+    }
+
+    // TODO: Deprecate
+    public init(role: Role, content: String, functionCall: FunctionCall? = nil, nameOfFunctionThatProduced: String? = nil) {
+        self.role = role
+        self.functionCalls = functionCall != nil ? [functionCall!] : []
+
+        if let nameOfFunctionThatProduced {
+            self.content = ""
+            self.functionResponses = [.init(id: nil, functionName: nameOfFunctionThatProduced, text: content)]
+        } else {
+            self.content = content
+        }
+    }
+}
+
+extension LLMMessage {
+    // Deprecated; use the array instead
+    public var functionCall: FunctionCall? {
+        get { functionCalls.first }
+        set {
+            if let newValue {
+                functionCalls = [newValue]
+            } else {
+                functionCalls = []
+            }
+        }
+    }
+    // Deprecated; use functionResponse instead
+    public var nameOfFunctionThatProduced: String? {
+        get { functionResponses.first?.functionName }
+        set {
+            if let newValue {
+                functionResponses = [.init(id: nil, functionName: newValue, text: content)]
+                self.content = ""
+            } else {
+                self.functionResponses = []
+            }
+        }
     }
 }
 

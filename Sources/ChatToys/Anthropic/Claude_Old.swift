@@ -1,15 +1,7 @@
 import Foundation
 
-public struct AnthropicCredentials {
-    var apiKey: String
-    var orgId: String?
-
-    public init(apiKey: String) {
-        self.apiKey = apiKey
-    }
-}
-
-public struct Claude {
+// Uses old pre-message API
+public struct Claude_OldAPI {
     public enum Model: String, Equatable {
         case claudeInstant1 = "claude-instant-1.2"
         case claude2 = "claude-2"
@@ -42,7 +34,7 @@ public struct Claude {
     }
 }
 
-extension Claude: ChatLLM {
+extension Claude_OldAPI: ChatLLM {
     private struct Request: Codable {
         var prompt: String
         var model: String
