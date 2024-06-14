@@ -122,8 +122,7 @@ extension Claude: ChatLLM, FunctionCallingLLM {
     }
 
     public func completeStreaming(prompt: [LLMMessage], functions: [LLMFunction]) -> AsyncThrowingStream<LLMMessage, Error> {
-        // TODO: Implement function call streaming
-        if Self.DEBUG || functions.count > 0 {
+        if Self.DEBUG {
             return AsyncThrowingStream { cont in
                 Task {
                     do {
@@ -167,6 +166,9 @@ extension Claude: ChatLLM, FunctionCallingLLM {
              event: content_block_delta
              data: {"type": "content_block_delta", "index": 0, "delta": {"type": "text_delta", "text": "!"}}
 
+             event: content_block_delta
+             data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"location\":"}}
+
              event: content_block_stop
              data: {"type": "content_block_stop", "index": 0}
 
@@ -186,12 +188,6 @@ extension Claude: ChatLLM, FunctionCallingLLM {
             struct PartialMessage: Codable {
                 var id: String?
                 var role: ClaudeRole?
-            }
-
-            struct ContentDelta: Codable {
-                var type: String // e.g. text_delta or input_json_delta
-                var text: String?
-                var partial_json: String?
             }
 
             func modifyLastMessageAndYield(_ block: (inout LLMMessage) -> Void) {
@@ -226,14 +222,33 @@ extension Claude: ChatLLM, FunctionCallingLLM {
 //                print("[CS] content_block_start: \(data ?? "")")
                 struct ContentBlockStart: Codable {
                     var index: Int
-                    var content_block: ContentDelta
-                }
-                if let block = tryDecode(data: data, type: ContentBlockStart.self), let text = block.content_block.text {
-                    // If this is the first content block of the first message, prepend the response prefix
-                    if messages.count == 1, messages[0].content.isEmpty {
-                        messages[0].content += options.responsePrefix
+                    var content_block: ContentBlock
+
+                    struct ContentBlock: Codable {
+                        var type: String // e.g. text or tool_use
+                        var text: String? // for type=text
+                        var id: String? // for type=tool_use
+                        var name: String? // for type=tool_use
+                        var input: AnyCodable? // for type=tool_use; ignored since empty at beginning
                     }
-                    modifyLastMessageAndYield { $0.content += text }
+                }
+                if let block = tryDecode(data: data, type: ContentBlockStart.self) {
+                    switch block.content_block.type {
+                    case "text":
+                        if let text = block.content_block.text {
+                            // If this is the first content block of the first message, prepend the response prefix
+                            if messages.count == 1, messages[0].content.isEmpty {
+                                messages[0].content += options.responsePrefix
+                            }
+                            modifyLastMessageAndYield { $0.content += text }
+                        }
+                    case "tool_use":
+                        if let name = block.content_block.name, let id = block.content_block.id {
+                            modifyLastMessageAndYield { $0.functionCalls.append(.init(id: id, name: name, arguments: "")) }
+                        }
+                    default: () // not expected
+                    }
+
                 }
             }
 
@@ -242,9 +257,27 @@ extension Claude: ChatLLM, FunctionCallingLLM {
                 struct ContentBlockDelta: Codable {
                     var index: Int
                     var delta: ContentDelta
+
+                    struct ContentDelta: Codable {
+                        var type: String // e.g. text_delta or input_json_delta
+                        var text: String?
+                        var partial_json: String?
+                    }
                 }
-                if let delta = tryDecode(data: data, type: ContentBlockDelta.self), let text = delta.delta.text {
-                    modifyLastMessageAndYield { $0.content += text }
+                if let delta = tryDecode(data: data, type: ContentBlockDelta.self) {
+                    switch delta.delta.type {
+                    case "text_delta":
+                        if let text = delta.delta.text {
+                            modifyLastMessageAndYield { $0.content += text }
+                        }
+                    case "input_json_delta":
+                        if let partial = delta.delta.partial_json {
+                            modifyLastMessageAndYield { $0.functionCalls.modifyLast{
+                                $0.arguments += partial
+                            }}
+                        }
+                    default: ()
+                    }
                 }
             }
 
@@ -513,3 +546,4 @@ struct ClaudeMessage: Equatable, Codable {
         return true
     }
 }
+

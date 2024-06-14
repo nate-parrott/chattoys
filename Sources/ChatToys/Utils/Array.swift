@@ -7,6 +7,12 @@ extension Array {
         }
         return nil
     }
+
+    mutating func modifyLast(_ block: (inout Element) -> Void) {
+        if count > 0 {
+            block(&self[count - 1])
+        }
+    }
 }
 
 extension Sequence {
