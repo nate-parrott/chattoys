@@ -233,13 +233,13 @@ public class MarkdownProcessor {
 
     private static func processWords(_ words: ArraySlice<Substring>) -> String {
         return words.joined(separator: " ")
+            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
             .replacingOccurrences(of: ",", with: "%2C")
             .replacingOccurrences(of: "*", with: "")
             .replacingOccurrences(of: "#", with: "")
             .replacingOccurrences(of: "-", with: "")
             .replacingOccurrences(of: "_", with: "")
             .trimmingCharacters(in: .whitespaces)
-            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
     }
 
     public static func shortUUID(_ string: String) -> String {
