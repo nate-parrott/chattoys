@@ -214,15 +214,16 @@ public class MarkdownProcessor {
         }
         
         let words = textContent.split(separator: " ")
-        let start = processWords(words.prefix(4))
         
+        // TODO see if a more robust implementation would be warranted
         if let range = urlString.range(of: "#:~:text=") {
             let urlString = urlString[..<range.lowerBound]
         }
         
-        if words.count <= 4 {
-            urlString = "\(urlString)#:~:text=\(start)"
+        if words.count <= 8 {
+            urlString = "\(urlString)#:~:text=\( processWords(words.prefix(8)) )"
         } else {
+            let start = processWords(words.prefix(4))
             let end = processWords(words.suffix(4))
             urlString = "\(urlString)#:~:text=\(start),\(end)"
         }
