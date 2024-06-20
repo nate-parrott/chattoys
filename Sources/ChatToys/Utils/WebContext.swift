@@ -47,6 +47,9 @@ public struct WebContext: Equatable, Codable {
 
     // For anthropic models, which are trained to expect xml for organizating text
     public var asXML: String {
+        return asXML(includeNodeIds: false)
+    }
+    public func asXML(includeNodeIds: Bool = false) -> String {
         var lines = [String]()
         lines.append("<search-results query='\(query)'>")
         for page in pages {
@@ -56,7 +59,11 @@ public struct WebContext: Equatable, Codable {
             } else {
                 lines.append("<webpage domain='\(page.searchResult.url.hostWithoutWWW)'>")
             }
-            lines.append(page.markdownWithNodeIds)
+            if includeNodeIds {
+                lines.append(page.markdownWithNodeIds)
+            } else {
+                lines.append(page.markdownWithSnippetAndTitle)
+            }
 
             lines.append("</webpage>")
             lines.append("")
@@ -199,10 +206,23 @@ extension Array {
 }
 
 public class MarkdownProcessor {
+    private static var lock = NSLock()
+    private static var stringToKeyMap = [String: String]()
+    private static var uuidToURLMap = [String: String]()
+    public static var uuidLength = 5
     
-    public static var stringToKeyMap = [String: String]()
-    public static var uuidToURLMap = [String: String]()
+    public static func updateStringToKeyMap(key: String, value: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        stringToKeyMap[key] = value
+    }
 
+    public static func updateUuidToURLMap(key: String, value: String) {
+        lock.lock()
+        defer { lock.unlock() }
+        uuidToURLMap[key] = value
+    }
+    
     public static func key(for value: String) -> String? {
         return stringToKeyMap.first { $0.value == value }?.key
     }
@@ -247,17 +267,25 @@ public class MarkdownProcessor {
             return existingKey
         }
         var uuid: String
+        var collisions = 0
         repeat {
-            uuid = String(UUID().uuidString.prefix(4))
+            uuid = String(UUID().uuidString.prefix(uuidLength))
+            if stringToKeyMap.values.contains(uuid) {
+                collisions += 1
+                if collisions >= 2 {
+                    collisions = 0
+                    uuidLength += 1
+                }
+            }
         } while stringToKeyMap.values.contains(uuid)
-        stringToKeyMap[string] = uuid
+        updateStringToKeyMap(key: string, value: uuid)
         return uuid
     }
 
     public static func markdownWithInlineNodeIds(markdown: String, url: String) -> String {
         return markdown.split(separator: "\n").map { line in
             let key = shortUUID(String(line))
-            uuidToURLMap[key] = url
+            updateUuidToURLMap(key: key, value: url)
             return "[↗](\(key)) \(line)"
         }.joined(separator: "\n")
     }
