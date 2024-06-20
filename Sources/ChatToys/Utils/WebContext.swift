@@ -20,6 +20,10 @@ public struct WebContext: Equatable, Codable {
             lines.append(markdown)
             return lines.joined(separator: "\n")
         }
+
+        public var markdownWithNodeIds: String {
+            return MarkdownProcessor.markdownWithInlineNodeIds(markdown: markdown, url: searchResult.url.absoluteString)
+        }
     }
     public var pages: [Page]
     public var urlMode: FastHTMLProcessor.URLMode
@@ -52,7 +56,7 @@ public struct WebContext: Equatable, Codable {
             } else {
                 lines.append("<webpage domain='\(page.searchResult.url.hostWithoutWWW)'>")
             }
-            lines.append(page.markdownWithSnippetAndTitle)
+            lines.append(page.markdownWithNodeIds)
 
             lines.append("</webpage>")
             lines.append("")
@@ -194,3 +198,66 @@ extension Array {
     }
 }
 
+public class MarkdownProcessor {
+    
+    public static var stringToKeyMap = [String: String]()
+    public static var uuidToURLMap = [String: String]()
+
+    public static func key(for value: String) -> String? {
+        return stringToKeyMap.first { $0.value == value }?.key
+    }
+
+    public static func url(for value: String) -> URL? {
+        guard let textContent = key(for: value)?.nilIfEmptyOrJustWhitespace,
+              var urlString = uuidToURLMap[value] else {
+            return nil
+        }
+        
+        let words = textContent.split(separator: " ")
+        let start = processWords(words.prefix(4))
+        
+        if let range = urlString.range(of: "#:~:text=") {
+            let urlString = urlString[..<range.lowerBound]
+        }
+        
+        if words.count <= 4 {
+            urlString = "\(urlString)#:~:text=\(start)"
+        } else {
+            let end = processWords(words.suffix(4))
+            urlString = "\(urlString)#:~:text=\(start),\(end)"
+        }
+        
+        return URL(string: urlString)
+    }
+
+    private static func processWords(_ words: ArraySlice<Substring>) -> String {
+        return words.joined(separator: " ")
+            .replacingOccurrences(of: ",", with: "%2C")
+            .replacingOccurrences(of: "*", with: "")
+            .replacingOccurrences(of: "#", with: "")
+            .replacingOccurrences(of: "-", with: "")
+            .replacingOccurrences(of: "_", with: "")
+            .trimmingCharacters(in: .whitespaces)
+            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
+    }
+
+    public static func shortUUID(_ string: String) -> String {
+        if let existingKey = stringToKeyMap[string] {
+            return existingKey
+        }
+        var uuid: String
+        repeat {
+            uuid = String(UUID().uuidString.prefix(4))
+        } while stringToKeyMap.values.contains(uuid)
+        stringToKeyMap[string] = uuid
+        return uuid
+    }
+
+    public static func markdownWithInlineNodeIds(markdown: String, url: String) -> String {
+        return markdown.split(separator: "\n").map { line in
+            let key = shortUUID(String(line))
+            uuidToURLMap[key] = url
+            return "[↗](\(key)) \(line)"
+        }.joined(separator: "\n")
+    }
+}
