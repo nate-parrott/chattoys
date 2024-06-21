@@ -4,10 +4,12 @@ public struct WebContext: Equatable, Codable {
     public struct Page: Equatable, Codable {
         public var searchResult: WebSearchResult
         public var markdown: String
+        public var markdownWithNodeIds: String?
 
-        public init(searchResult: WebSearchResult, markdown: String) {
+        public init(searchResult: WebSearchResult, markdown: String, markdownWithNodeIds: String? = nil) {
             self.searchResult = searchResult
             self.markdown = markdown
+            self.markdownWithNodeIds = markdownWithNodeIds
         }
 
         public var markdownWithSnippetAndTitle: String {
@@ -19,10 +21,6 @@ public struct WebContext: Equatable, Codable {
 
             lines.append(markdown)
             return lines.joined(separator: "\n")
-        }
-
-        public var markdownWithNodeIds: String {
-            return MarkdownProcessor.markdownWithInlineNodeIds(markdown: markdown, url: searchResult.url.absoluteString)
         }
     }
     public var pages: [Page]
@@ -59,8 +57,8 @@ public struct WebContext: Equatable, Codable {
             } else {
                 lines.append("<webpage domain='\(page.searchResult.url.hostWithoutWWW)'>")
             }
-            if includeNodeIds {
-                lines.append(page.markdownWithNodeIds)
+            if includeNodeIds, let markdownWithNodeIds = page.markdownWithNodeIds {
+                lines.append(markdownWithNodeIds)
             } else {
                 lines.append(page.markdownWithSnippetAndTitle)
             }
@@ -105,7 +103,8 @@ extension WebContext.Page {
             let resp = try await URLSession.shared.data(from: result.url)
             let proc = try FastHTMLProcessor(url: resp.1.url ?? result.url, data: resp.0)
             let markdown = proc.markdown(urlMode: urlMode)
-            return .init(searchResult: result, markdown: markdown)
+            let markdownWithNodeIds = try await MarkdownProcessor.markdownWithInlineNodeIds(markdown: markdown, url: result.url.absoluteString)
+            return .init(searchResult: result, markdown: markdown, markdownWithNodeIds: markdownWithNodeIds)
         }
     }
 
@@ -205,39 +204,26 @@ extension Array {
     }
 }
 
-public class MarkdownProcessor {
-    private static var lock = NSLock()
+public actor MarkdownProcessor {
+
     private static var stringToKeyMap = [String: String]()
     private static var uuidToURLMap = [String: String]()
-    public static var uuidLength = 5
+    private static var uuidLength = 5
     
-    public static func updateStringToKeyMap(key: String, value: String) {
-        lock.lock()
-        defer { lock.unlock() }
-        stringToKeyMap[key] = value
-    }
-
-    public static func updateUuidToURLMap(key: String, value: String) {
-        lock.lock()
-        defer { lock.unlock() }
-        uuidToURLMap[key] = value
-    }
-    
-    public static func key(for value: String) -> String? {
+    public static func key(for value: String) async -> String? {
         return stringToKeyMap.first { $0.value == value }?.key
     }
 
-    public static func url(for value: String) -> URL? {
-        guard let textContent = key(for: value)?.nilIfEmptyOrJustWhitespace,
+    public static func url(for value: String) async -> URL? {
+        guard let textContent = await key(for: value)?.nilIfEmptyOrJustWhitespace,
               var urlString = uuidToURLMap[value] else {
             return nil
         }
         
         let words = textContent.split(separator: " ")
         
-        // TODO see if a more robust implementation would be warranted
         if let range = urlString.range(of: "#:~:text=") {
-            let urlString = urlString[..<range.lowerBound]
+            urlString = String(urlString[..<range.lowerBound])
         }
         
         if words.count <= 8 {
@@ -262,7 +248,7 @@ public class MarkdownProcessor {
             .trimmingCharacters(in: .whitespaces)
     }
 
-    public static func shortUUID(_ string: String) -> String {
+    public static func shortUUID(_ string: String) async -> String {
         if let existingKey = stringToKeyMap[string] {
             return existingKey
         }
@@ -278,15 +264,17 @@ public class MarkdownProcessor {
                 }
             }
         } while stringToKeyMap.values.contains(uuid)
-        updateStringToKeyMap(key: string, value: uuid)
+        stringToKeyMap[string] = uuid
         return uuid
     }
 
-    public static func markdownWithInlineNodeIds(markdown: String, url: String) -> String {
-        return markdown.split(separator: "\n").map { line in
-            let key = shortUUID(String(line))
-            updateUuidToURLMap(key: key, value: url)
-            return "[↗](\(key)) \(line)"
-        }.joined(separator: "\n")
+    public static func markdownWithInlineNodeIds(markdown: String, url: String) async -> String {
+        var result = [String]()
+        for line in markdown.split(separator: "\n") {
+            async let key = shortUUID(String(line))
+            await uuidToURLMap[key] = url
+            result.append("[↗](\(await key)) \(line)")
+        }
+        return result.joined(separator: "\n")
     }
 }
