@@ -103,7 +103,7 @@ extension WebContext.Page {
             let resp = try await URLSession.shared.data(from: result.url)
             let proc = try FastHTMLProcessor(url: resp.1.url ?? result.url, data: resp.0)
             let markdown = proc.markdown(urlMode: urlMode)
-            let markdownWithNodeIds = try await MarkdownProcessor.markdownWithInlineNodeIds(markdown: markdown, url: result.url.absoluteString)
+            let markdownWithNodeIds = try await MarkdownProcessor.shared.markdownWithInlineNodeIds(markdown: markdown, url: result.url.absoluteString)
             return .init(searchResult: result, markdown: markdown, markdownWithNodeIds: markdownWithNodeIds)
         }
     }
@@ -205,17 +205,18 @@ extension Array {
 }
 
 public actor MarkdownProcessor {
-
-    private static var stringToKeyMap = [String: String]()
-    private static var uuidToURLMap = [String: String]()
-    private static var uuidLength = 5
     
-    public static func key(for value: String) async -> String? {
+    public static let shared = MarkdownProcessor()
+    private var stringToKeyMap = [String: String]()
+    private var uuidToURLMap = [String: String]()
+    private var uuidLength = 5
+    
+    public func key(for value: String) -> String? {
         return stringToKeyMap.first { $0.value == value }?.key
     }
 
-    public static func url(for value: String) async -> URL? {
-        guard let textContent = await key(for: value)?.nilIfEmptyOrJustWhitespace,
+    public func url(for value: String) -> URL? {
+        guard let textContent = key(for: value)?.nilIfEmptyOrJustWhitespace,
               var urlString = uuidToURLMap[value] else {
             return nil
         }
@@ -237,7 +238,7 @@ public actor MarkdownProcessor {
         return URL(string: urlString)
     }
 
-    private static func processWords(_ words: ArraySlice<Substring>) -> String {
+    private func processWords(_ words: ArraySlice<Substring>) -> String {
         return words.joined(separator: " ")
             .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
             .replacingOccurrences(of: ",", with: "%2C")
@@ -248,7 +249,7 @@ public actor MarkdownProcessor {
             .trimmingCharacters(in: .whitespaces)
     }
 
-    public static func shortUUID(_ string: String) async -> String {
+    public func shortUUID(_ string: String) -> String {
         if let existingKey = stringToKeyMap[string] {
             return existingKey
         }
@@ -268,12 +269,12 @@ public actor MarkdownProcessor {
         return uuid
     }
 
-    public static func markdownWithInlineNodeIds(markdown: String, url: String) async -> String {
+    public func markdownWithInlineNodeIds(markdown: String, url: String) async -> String {
         var result = [String]()
         for line in markdown.split(separator: "\n") {
-            async let key = shortUUID(String(line))
-            await uuidToURLMap[key] = url
-            result.append("[↗](\(await key)) \(line)")
+            let key = await shortUUID(String(line))
+            uuidToURLMap[key] = url
+            result.append("[↗](\(key)) \(line)")
         }
         return result.joined(separator: "\n")
     }
