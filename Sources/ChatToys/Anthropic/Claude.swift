@@ -114,9 +114,6 @@ extension Claude: ChatLLM, FunctionCallingLLM {
         let resp = try JSONDecoder().decode(Response.self, from: data)
         let text = resp.content.first(where: { $0.type == .text })?.text ?? ""
         let functionCalls = resp.content.filter { $0.type == .tool_use }.compactMap { $0.asFunctionCall }
-//        guard let text = resp.content.first?.text else {
-//            throw ClaudeError.emptyResponseText
-//        }
 
         return LLMMessage(assistantMessageWithContent: options.responsePrefix + text, functionCalls: functionCalls)
     }
