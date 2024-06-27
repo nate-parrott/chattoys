@@ -208,12 +208,12 @@ public actor MarkdownProcessor {
     public typealias NodeId = String
 
     public static let shared = MarkdownProcessor()
-    private var stringToNodeIdMap = [String: NodeId]()
+    private var nodeIdToStringMap = [NodeId: String]()
     private var uuidToURLMap = [NodeId: String]()
     private var uuidLength = 5 // start at 5, increase as needed when collisions happen often
 
     public func text(forNodeId nodeId: String) -> String? {
-        return stringToNodeIdMap.first { $0.value == nodeId }?.key
+        return nodeIdToStringMap[nodeId]
     }
 
     // Keep for backwards compatibility
@@ -246,38 +246,42 @@ public actor MarkdownProcessor {
 
     private func processWords(_ words: ArraySlice<Substring>) -> String {
         return words.joined(separator: " ")
-            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
             .replacingOccurrences(of: ",", with: "%2C")
             .replacingOccurrences(of: "*", with: "")
             .replacingOccurrences(of: "#", with: "")
             .replacingOccurrences(of: "-", with: "")
             .replacingOccurrences(of: "_", with: "")
             .trimmingCharacters(in: .whitespaces)
+            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
     }
 
     public func shortUUID(_ string: String) -> NodeId {
-        if let existingKey = stringToNodeIdMap[string] {
-            return existingKey
-        }
         var uuid: String
         var collisions = 0
         repeat {
             uuid = String(UUID().uuidString.prefix(uuidLength))
-            if stringToNodeIdMap.values.contains(uuid) {
+            if nodeIdToStringMap.keys.contains(uuid) {
                 collisions += 1
                 if collisions >= 2 {
                     collisions = 0
                     uuidLength += 1
                 }
             }
-        } while stringToNodeIdMap.values.contains(uuid)
-        stringToNodeIdMap[string] = uuid
+        } while nodeIdToStringMap.keys.contains(uuid)
+        nodeIdToStringMap[uuid] = string
         return uuid
     }
 
     public func markdownWithInlineNodeIds(markdown: String, url: String) async -> String {
         var result = [String]()
         for line in markdown.split(separator: "\n") {
+            // Remove any blank list items
+            if line == "-" { continue }
+            // If it's a short text or likely JSON do not give a node ID
+            if line.split(separator: " ").count < 10 || line.prefix(1) == "{" {
+                result.append("           \(line)")
+                continue
+            }
             let key = shortUUID(String(line))
             uuidToURLMap[key] = url
             result.append("[↗](\(key)) \(line)")
