@@ -22,6 +22,7 @@ public struct Claude {
         case claude3Haiku // small
         case claude3Sonnet // medium
         case claude3Opus // large
+        case claude3_5Sonnet
         case custom(String /* model id */, Int /* token limit */)
 
         var modelId: String {
@@ -31,6 +32,7 @@ public struct Claude {
             case .claude3Haiku: return "claude-3-haiku-20240307"
             case .claude3Sonnet: return "claude-3-sonnet-20240229"
             case .claude3Opus: return "claude-3-opus-20240229"
+            case .claude3_5Sonnet: return "claude-3-5-sonnet"
             case .custom(let id, _): return id
             }
         }
@@ -45,7 +47,7 @@ public struct Claude {
         public var responsePrefix: String // Forces the model to use this as the beginning of the response. (This prefix _will_ be included in the output).
         public var stream: Bool
 
-        public init(model: Model = .claudeInstant12, maxTokens: Int = 1000, stopSequences: [String] = [], temperature: Double = 0.5, printToConsole: Bool = false, responsePrefix: String = "", stream: Bool = true) {
+        public init(model: Model = .claude3Haiku, maxTokens: Int = 4096, stopSequences: [String] = [], temperature: Double = 0.5, printToConsole: Bool = false, responsePrefix: String = "", stream: Bool = true) {
             self.model = model
             self.maxTokens = maxTokens
             self.stopSequences = stopSequences
@@ -84,7 +86,7 @@ extension Claude: ChatLLM, FunctionCallingLLM {
     public var tokenLimit: Int {
         switch options.model {
         case .claudeInstant12, .claude2: return 100_000
-        case .claude3Sonnet, .claude3Opus, .claude3Haiku: return 200_000
+        case .claude3Sonnet, .claude3Opus, .claude3Haiku, .claude3_5Sonnet: return 200_000
         case .custom(_, let limit): return limit
         }
     }

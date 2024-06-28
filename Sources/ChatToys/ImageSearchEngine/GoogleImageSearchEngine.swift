@@ -19,6 +19,7 @@ public struct GoogleImageSearchEngine: ImageSearchEngine {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         let iosUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1"
         request.setValue(iosUserAgent, forHTTPHeaderField: "User-Agent")
+        print("[N] Making Google Images Request '\(query)'")
         let (data, response) = try await URLSession.shared.data(for: request)
         guard let html = String(data: data, encoding: .utf8) else {
             throw SearchError.invalidHTML

@@ -12,15 +12,16 @@ public struct GoogleSearchEngine: WebSearchEngine {
         var urlComponents = URLComponents(string: "https://www.google.com/search")!
         urlComponents.queryItems = [
             URLQueryItem(name: "q", value: query),
+            URLQueryItem(name: "udm", value: "14"),
 //            URLQueryItem(name: "gbv", value: "1"), // google basic version = 1 (no js)
         ]
         let session = URLSession.shared // URLSession(configuration: .ephemeral)
         var request = URLRequest(url: urlComponents.url!)
-        request.httpShouldHandleCookies = true
+        request.httpShouldHandleCookies = false
         request.setValue("text/html,application/xhtml+xml", forHTTPHeaderField: "Accept")
         let chromeUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
-//        let iosUserAgent = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_1_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Mobile/15E148 Safari/604.1"
         request.setValue(chromeUserAgent, forHTTPHeaderField: "User-Agent")
+        print("[N] Making Google Request '\(query)'")
         let (data, response) = try await session.data(for: request)
         guard let html = String(data: data, encoding: .utf8) else {
             throw SearchError.invalidHTML
