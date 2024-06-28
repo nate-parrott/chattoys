@@ -308,11 +308,7 @@ public actor MarkdownProcessor {
             result.append("[↗](\(key)) \(line)")
             lastUsedKey = key
         }
-        
-        print("✨")
-        print(result.joined(separator: "\n"))
-        print("✨")
-        
+
         return result.joined(separator: "\n")
     }
 }
