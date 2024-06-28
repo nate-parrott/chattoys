@@ -249,7 +249,6 @@ public actor MarkdownProcessor {
             .replacingOccurrences(of: ",", with: "%2C")
             .replacingOccurrences(of: "*", with: "")
             .replacingOccurrences(of: "#", with: "")
-            .replacingOccurrences(of: "-", with: "")
             .replacingOccurrences(of: "_", with: "")
             .trimmingCharacters(in: .whitespaces)
             .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
@@ -274,18 +273,52 @@ public actor MarkdownProcessor {
 
     public func markdownWithInlineNodeIds(markdown: String, url: String) async -> String {
         var result = [String]()
+        var lastUsedKey = ""
         for line in markdown.split(separator: "\n") {
+            
             // Remove any blank list items
             if line == "-" { continue }
-            // If it's a short text or likely JSON do not give a node ID
-            if line.split(separator: " ").count < 10 || line.prefix(1) == "{" {
-                result.append("           \(line)")
+            
+            var dontUseNodeID = false
+            // Likely JSON / JSON-LD
+            if line.prefix(1) == "{" || line.prefix(2) == "[{" { dontUseNodeID = true }
+            // URL in a list
+            if line.prefix(3) == "- [" && line.suffix(1) == ")" { dontUseNodeID = true }
+            // If it doesnt include any alpha numeric characters
+            if !line.containsAlphanumeric { dontUseNodeID = true }
+            // Short strings
+            if line.split(separator: " ").count < 7 { dontUseNodeID = true }
+            
+            // Let's always give a Node ID to headlines or styled text
+            if line.prefix(1) == "#" && line.containsAlphanumeric { dontUseNodeID = false }
+            if line.prefix(2) == "**" && line.containsAlphanumeric { dontUseNodeID = false }
+            if line.prefix(1) == "_" && line.containsAlphanumeric { dontUseNodeID = false }
+            
+            if dontUseNodeID {
+                let leadingSpace = String(repeating: " ", count: uuidLength + 6)
+                result.append("\(leadingSpace)\(line)")
+                if nodeIdToStringMap[lastUsedKey] != nil {
+                    nodeIdToStringMap[lastUsedKey]! += "\n\(line)"
+                }
                 continue
             }
+            
             let key = shortUUID(String(line))
             uuidToURLMap[key] = url
             result.append("[↗](\(key)) \(line)")
+            lastUsedKey = key
         }
+        
+        print("✨")
+        print(result.joined(separator: "\n"))
+        print("✨")
+        
         return result.joined(separator: "\n")
+    }
+}
+
+extension Substring {
+    var containsAlphanumeric: Bool {
+        return self.range(of: "[a-zA-Z0-9]", options: .regularExpression) != nil
     }
 }
