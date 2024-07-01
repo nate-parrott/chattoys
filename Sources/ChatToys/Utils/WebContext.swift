@@ -208,12 +208,12 @@ public actor MarkdownProcessor {
     public typealias NodeId = String
 
     public static let shared = MarkdownProcessor()
-    private var stringToNodeIdMap = [String: NodeId]()
+    private var nodeIdToStringMap = [NodeId: String]()
     private var uuidToURLMap = [NodeId: String]()
     private var uuidLength = 5 // start at 5, increase as needed when collisions happen often
 
     public func text(forNodeId nodeId: String) -> String? {
-        return stringToNodeIdMap.first { $0.value == nodeId }?.key
+        return nodeIdToStringMap[nodeId]
     }
 
     // Keep for backwards compatibility
@@ -246,42 +246,75 @@ public actor MarkdownProcessor {
 
     private func processWords(_ words: ArraySlice<Substring>) -> String {
         return words.joined(separator: " ")
-            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
             .replacingOccurrences(of: ",", with: "%2C")
             .replacingOccurrences(of: "*", with: "")
             .replacingOccurrences(of: "#", with: "")
-            .replacingOccurrences(of: "-", with: "")
             .replacingOccurrences(of: "_", with: "")
             .trimmingCharacters(in: .whitespaces)
+            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
     }
 
     public func shortUUID(_ string: String) -> NodeId {
-        if let existingKey = stringToNodeIdMap[string] {
-            return existingKey
-        }
         var uuid: String
         var collisions = 0
         repeat {
             uuid = String(UUID().uuidString.prefix(uuidLength))
-            if stringToNodeIdMap.values.contains(uuid) {
+            if nodeIdToStringMap.keys.contains(uuid) {
                 collisions += 1
                 if collisions >= 2 {
                     collisions = 0
                     uuidLength += 1
                 }
             }
-        } while stringToNodeIdMap.values.contains(uuid)
-        stringToNodeIdMap[string] = uuid
+        } while nodeIdToStringMap.keys.contains(uuid)
+        nodeIdToStringMap[uuid] = string
         return uuid
     }
 
     public func markdownWithInlineNodeIds(markdown: String, url: String) async -> String {
         var result = [String]()
+        var lastUsedKey = ""
         for line in markdown.split(separator: "\n") {
+            
+            // Remove any blank list items
+            if line == "-" { continue }
+            
+            var dontUseNodeID = false
+            // Likely JSON / JSON-LD
+            if line.prefix(1) == "{" || line.prefix(2) == "[{" { dontUseNodeID = true }
+            // URL in a list
+            if line.prefix(3) == "- [" && line.suffix(1) == ")" { dontUseNodeID = true }
+            // If it doesnt include any alpha numeric characters
+            if !line.containsAlphanumeric { dontUseNodeID = true }
+            // Short strings
+            if line.split(separator: " ").count < 7 { dontUseNodeID = true }
+            
+            // Let's always give a Node ID to headlines or styled text
+            if line.prefix(1) == "#" && line.containsAlphanumeric { dontUseNodeID = false }
+            if line.prefix(2) == "**" && line.containsAlphanumeric { dontUseNodeID = false }
+            if line.prefix(1) == "_" && line.containsAlphanumeric { dontUseNodeID = false }
+            
+            if dontUseNodeID {
+                let leadingSpace = String(repeating: " ", count: uuidLength + 6)
+                result.append("\(leadingSpace)\(line)")
+                if nodeIdToStringMap[lastUsedKey] != nil {
+                    nodeIdToStringMap[lastUsedKey]! += "\n\(line)"
+                }
+                continue
+            }
+            
             let key = shortUUID(String(line))
             uuidToURLMap[key] = url
             result.append("[↗](\(key)) \(line)")
+            lastUsedKey = key
         }
+
         return result.joined(separator: "\n")
+    }
+}
+
+extension Substring {
+    var containsAlphanumeric: Bool {
+        return self.range(of: "[a-zA-Z0-9]", options: .regularExpression) != nil
     }
 }
