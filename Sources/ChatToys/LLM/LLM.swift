@@ -42,9 +42,9 @@ public struct LLMMessage: Equatable, Codable {
     }
 
     public struct FunctionResponse: Equatable, Codable {
-        var id: String?
-        var functionName: String
-        var text: String
+        public var id: String?
+        public var functionName: String
+        public var text: String
 
         public init(id: String?, functionName: String, text: String) {
             self.id = id

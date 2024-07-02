@@ -11,11 +11,12 @@ private enum WebViewJSError: Error {
 
 
 public extension FastHTMLProcessor {
+    @MainActor
     static func fromWebView(_ webView: WKWebView) async throws -> FastHTMLProcessor {
         guard let html = try await webView.fixed_evaluateJavascript("document.body.outerHTML") as? String else {
             throw HTMLError.cantGetHTML
         }
-        guard let url = await webView.url, let data = html.data(using: .utf8) else {
+        guard let url = webView.url, let data = html.data(using: .utf8) else {
             throw WebViewJSError.noResult
         }
         return try .init(url: url, data: data)
