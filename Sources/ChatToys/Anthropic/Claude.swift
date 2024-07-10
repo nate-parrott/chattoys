@@ -32,7 +32,7 @@ public struct Claude {
             case .claude3Haiku: return "claude-3-haiku-20240307"
             case .claude3Sonnet: return "claude-3-sonnet-20240229"
             case .claude3Opus: return "claude-3-opus-20240229"
-            case .claude3_5Sonnet: return "claude-3-5-sonnet"
+            case .claude3_5Sonnet: return "claude-3-5-sonnet-20240620"
             case .custom(let id, _): return id
             }
         }

@@ -1,7 +1,7 @@
 import Foundation
 
 extension FunctionCallingLLM {
-    public func completeStreamingWithJSONObject<T: Codable>(prompt: [LLMMessage], type: T.Type, functions: [LLMFunction], completeLinesOnly: Bool = false) -> AsyncThrowingStream<(LLMMessage, T?), Error> {
+    public func completeStreamingWithJSONObject<T: Codable>(prompt: [LLMMessage], type: T.Type, functions: [LLMFunction], completeLinesOnly: Bool = false, delimeters: (String, String)? = nil) -> AsyncThrowingStream<(LLMMessage, T?), Error> {
         return AsyncThrowingStream { cont in
             Task {
                 do {
@@ -9,7 +9,11 @@ extension FunctionCallingLLM {
                     var lastText = ""
                     for try await partial in self.completeStreaming(prompt: prompt, functions: functions) {
                         lastMsg = partial
-                        lastText = partial.content.byExtractingOnlyCodeBlocks.removing(prefix: "json")
+                        if let (start, end) = delimeters {
+                            lastText = String(partial.content.components(separatedBy: start).last!.components(separatedBy: end).first!)
+                        } else {
+                            lastText = partial.content.byExtractingOnlyCodeBlocks.removing(prefix: "json")
+                        }
 
                         var textToParse = lastText
                         if completeLinesOnly {

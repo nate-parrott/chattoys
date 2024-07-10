@@ -103,7 +103,7 @@ extension WebContext.Page {
             let resp = try await URLSession.shared.data(from: result.url)
             let proc = try FastHTMLProcessor(url: resp.1.url ?? result.url, data: resp.0)
             let markdown = proc.markdown(urlMode: urlMode)
-            let markdownWithNodeIds = try await MarkdownProcessor.shared.markdownWithInlineNodeIds(markdown: markdown, url: result.url.absoluteString)
+            let markdownWithNodeIds = await MarkdownProcessor.shared.markdownWithInlineNodeIds(markdown: markdown, url: result.url.absoluteString)
             return .init(searchResult: result, markdown: markdown, markdownWithNodeIds: markdownWithNodeIds)
         }
     }
