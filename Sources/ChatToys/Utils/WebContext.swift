@@ -208,12 +208,16 @@ public actor MarkdownProcessor {
     public typealias NodeId = String
 
     public static let shared = MarkdownProcessor()
-    private var stringToNodeIdMap = [String: NodeId]()
+    private var nodeIdToStringMap = [NodeId: String]()
     private var uuidToURLMap = [NodeId: String]()
     private var uuidLength = 5 // start at 5, increase as needed when collisions happen often
-
+    private struct MarkdownTextNode {
+        var texts = [any StringProtocol]()
+        var needsId: Bool
+    }
+    
     public func text(forNodeId nodeId: String) -> String? {
-        return stringToNodeIdMap.first { $0.value == nodeId }?.key
+        return nodeIdToStringMap[nodeId]
     }
 
     // Keep for backwards compatibility
@@ -246,42 +250,95 @@ public actor MarkdownProcessor {
 
     private func processWords(_ words: ArraySlice<Substring>) -> String {
         return words.joined(separator: " ")
-            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
             .replacingOccurrences(of: ",", with: "%2C")
             .replacingOccurrences(of: "*", with: "")
             .replacingOccurrences(of: "#", with: "")
-            .replacingOccurrences(of: "-", with: "")
             .replacingOccurrences(of: "_", with: "")
             .trimmingCharacters(in: .whitespaces)
+            .addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? ""
     }
 
     public func shortUUID(_ string: String) -> NodeId {
-        if let existingKey = stringToNodeIdMap[string] {
-            return existingKey
-        }
         var uuid: String
         var collisions = 0
         repeat {
             uuid = String(UUID().uuidString.prefix(uuidLength))
-            if stringToNodeIdMap.values.contains(uuid) {
+            if nodeIdToStringMap.keys.contains(uuid) {
                 collisions += 1
                 if collisions >= 2 {
                     collisions = 0
                     uuidLength += 1
                 }
             }
-        } while stringToNodeIdMap.values.contains(uuid)
-        stringToNodeIdMap[string] = uuid
+        } while nodeIdToStringMap.keys.contains(uuid)
+        nodeIdToStringMap[uuid] = string
         return uuid
     }
 
     public func markdownWithInlineNodeIds(markdown: String, url: String) async -> String {
-        var result = [String]()
-        for line in markdown.split(separator: "\n") {
-            let key = shortUUID(String(line))
-            uuidToURLMap[key] = url
-            result.append("[↗](\(key)) \(line)")
+        var nodes = [MarkdownTextNode]()
+        func appendOrCreateNewNodeWithoutID(_ line: any StringProtocol) {
+            if !nodes.isEmpty {
+                nodes[nodes.count - 1].texts.append(line)
+            } else {
+                nodes.append(MarkdownTextNode(texts: [line], needsId: false))
+            }
         }
-        return result.joined(separator: "\n")
+        
+        // TODO: Consider a more robust approach to dividing up, there's some instances where
+        // this approach is ideal and some where it's not.  Seems helpful to vet citations for now...
+        let lines = markdown.split(separator: "\n")
+        for (index, line) in lines.enumerated() {
+            
+            // Remove any blank list items
+            if line == "-" { continue }
+            
+            // Make sure it includes some alpha numeric characters
+            if !line.containsAlphanumeric {
+                appendOrCreateNewNodeWithoutID(line)
+            }
+            // Likely JSON / JSON-LD
+            else if line.prefix(1) == "{" || line.prefix(2) == "[{" {
+                appendOrCreateNewNodeWithoutID(line)
+            }
+            // URL in a list
+            else if line.prefix(3) == "- [" && line.suffix(1) == ")" {
+                appendOrCreateNewNodeWithoutID(line)
+            }
+            // Image w/ url removed
+            else if line.prefix(2) == "![" && line.suffix(1) == "]" {
+                nodes.append(MarkdownTextNode(texts: [line], needsId: true))
+            }
+            // If this line isn't a bullet and the next line is, lets give this line an id
+            else if line.prefix(2) != "- ", lines.count >= index + 2, lines[index + 1].prefix(2) == "- " {
+                nodes.append(MarkdownTextNode(texts: [line], needsId: true))
+            }
+            // If its not a header, bold or underlined and is a relatively short string, add to previous node
+            else if !(line.prefix(1) == "#" || line.prefix(2) == "**" || line.prefix(1) == "_")
+                && line.containsAlphanumeric && line.split(separator: " ").count < 7 {
+                appendOrCreateNewNodeWithoutID(line)
+            }
+            else {
+                nodes.append(MarkdownTextNode(texts: [line], needsId: true))
+            }
+        }
+        
+        // Put together a string of markdown with node ids
+        return nodes.map { node in
+            let joinedNodeText = node.texts.map { String($0) }.joined(separator: "\n")
+            let key = shortUUID(joinedNodeText)
+            uuidToURLMap[key] = url
+            let leadingSpace = String(repeating: " ", count: uuidLength + 6)
+            var prefix = node.needsId ? "[↗](\(key)) " : leadingSpace
+            return node.texts.enumerated().map { index, text in
+                "\(index > 0 ? leadingSpace : prefix)\(text)"
+            }.joined(separator: "\n")
+        }.joined(separator: "\n")
+    }
+}
+
+extension StringProtocol {
+    var containsAlphanumeric: Bool {
+        return self.range(of: "[a-zA-Z0-9]", options: .regularExpression) != nil
     }
 }
