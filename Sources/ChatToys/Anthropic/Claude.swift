@@ -14,7 +14,7 @@ public typealias ClaudeNewAPI = Claude
 
 // Uses new message-based claude API
 public struct Claude {
-    static let DEBUG = true
+    static let DEBUG = false
 
     public enum Model: Equatable {
         case claudeInstant12
