@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		5F0CAB3F2C46FD260018D540 /* SwiftUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F0CAB3E2C46FD260018D540 /* SwiftUI.swift */; };
 		5F11D47E2B336C4B0089C6FC /* HTMLToMarkdown.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F11D47D2B336C4B0089C6FC /* HTMLToMarkdown.swift */; };
 		5F23C3992A27BA6E00B35927 /* Settings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F23C3982A27BA6E00B35927 /* Settings.swift */; };
 		5F23C39B2A27BA7F00B35927 /* Chat.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5F23C39A2A27BA7F00B35927 /* Chat.swift */; };
@@ -26,6 +27,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		5F0CAB3E2C46FD260018D540 /* SwiftUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftUI.swift; sourceTree = "<group>"; };
 		5F11D47D2B336C4B0089C6FC /* HTMLToMarkdown.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = HTMLToMarkdown.swift; sourceTree = "<group>"; };
 		5F23C3982A27BA6E00B35927 /* Settings.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Settings.swift; sourceTree = "<group>"; };
 		5F23C39A2A27BA7F00B35927 /* Chat.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Chat.swift; sourceTree = "<group>"; };
@@ -126,6 +128,7 @@
 			children = (
 				5F67968C2AAA74F8000D3698 /* Scripting.swift */,
 				5F67968E2AAA7780000D3698 /* URL.swift */,
+				5F0CAB3E2C46FD260018D540 /* SwiftUI.swift */,
 			);
 			path = Utils;
 			sourceTree = "<group>";
@@ -207,6 +210,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				5F5314DA2A1EA8DE00B1653B /* ContentView.swift in Sources */,
+				5F0CAB3F2C46FD260018D540 /* SwiftUI.swift in Sources */,
 				5F23C39B2A27BA7F00B35927 /* Chat.swift in Sources */,
 				5F11D47E2B336C4B0089C6FC /* HTMLToMarkdown.swift in Sources */,
 				5FD74ABB2AC12EC70087E27A /* FunctionCalling.swift in Sources */,

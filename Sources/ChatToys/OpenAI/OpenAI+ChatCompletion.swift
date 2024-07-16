@@ -11,6 +11,8 @@ public extension URL {
 }
 
 public struct ChatGPT {
+    static let debug = false
+
     public enum Model: Equatable, Codable {
         case gpt35_turbo
         case gpt35_turbo_0125
@@ -96,7 +98,7 @@ extension ChatGPT: ChatLLM {
            case system
            case user
            case assistant
-           case function
+           case tool
        }
 
         struct Content: Equatable, Codable, Hashable {
@@ -123,18 +125,42 @@ extension ChatGPT: ChatLLM {
 
         var role: Role
         var content: [Content] // Decode either a string or an array. When encoding, encode as string if possible.
-        var name: String? // For function call responses (role=function)
-        var function_call: LLMMessage.FunctionCall?
-        
-        var contentAsText: String {
-            content.compactMap { $0.text }.joined()
+
+        // For role=tool
+        var tool_call_id: String? // For function call responses (role=tool)
+
+        // For role=assistant
+        struct ToolCall: Equatable, Codable, Hashable {
+            var id: String
+            var type: String // 'function'
+            var function: LLMMessage.FunctionCall
+        }
+        var tool_calls: [ToolCall]?
+
+        init(assistantWithContent content: [Content], toolCalls: [ToolCall] = []) {
+            self.role = .assistant
+            self.content = content
+            self.tool_calls = toolCalls
         }
 
-        init(role: Role, content: [Content], functionCall: LLMMessage.FunctionCall? = nil, nameOfFunctionThatProduced: String? = nil) {
-            self.role = role
+        init(userWithContent content: [Content]) {
+            self.role = .user
             self.content = content
-            self.function_call = functionCall
-            self.name = nameOfFunctionThatProduced
+        }
+
+        init(systemWithContent content: [Content]) {
+            self.role = .system
+            self.content = content
+        }
+
+        init(functionResponse: String, toolCallId: String) {
+            self.role = .tool
+            self.tool_call_id = toolCallId
+            self.content = [.text(functionResponse)]
+        }
+
+        var contentAsText: String {
+            content.compactMap { $0.text }.joined()
         }
 
         // MARK: - Encoding/Decoding
@@ -142,8 +168,8 @@ extension ChatGPT: ChatLLM {
         enum CodingKeys: String, CodingKey {
             case role
             case content
-            case name
-            case function_call
+            case tool_call_id // For tool responses (role=tool)
+            case tool_calls // For role=assistant
         }
 
         init(from decoder: Decoder) throws {
@@ -156,8 +182,8 @@ extension ChatGPT: ChatLLM {
             } else {
                 self.content = []
             }
-            name = try container.decodeIfPresent(String.self, forKey: .name)
-            function_call = try container.decodeIfPresent(LLMMessage.FunctionCall.self, forKey: .function_call)
+            tool_call_id = try container.decodeIfPresent(String.self, forKey: .tool_call_id)
+            tool_calls = try container.decodeIfPresent([ToolCall].self, forKey: .tool_calls)
         }
 
         func encode(to encoder: Encoder) throws {
@@ -168,8 +194,10 @@ extension ChatGPT: ChatLLM {
             } else {
                 try container.encode(content, forKey: .content)
             }
-            try container.encodeIfPresent(name, forKey: .name)
-            try container.encodeIfPresent(function_call, forKey: .function_call)
+            try container.encodeIfPresent(tool_call_id, forKey: .tool_call_id)
+            if let tool_calls, tool_calls.count > 0 {
+                try container.encodeIfPresent(tool_calls, forKey: .tool_calls)
+            }
         }
    }
 
@@ -179,7 +207,7 @@ extension ChatGPT: ChatLLM {
        var temperature: Double = 0.2
        var stream = true
        var stop: [String]?
-       var functions: [LLMFunction]?
+       var tools: [Tool]?
        var response_format: ResponseFormat?
        var max_tokens: Int?
        var logprobs: Bool?
@@ -188,18 +216,36 @@ extension ChatGPT: ChatLLM {
        struct ResponseFormat: Codable {
            var type: String  = "text"
        }
+
+       struct Tool: Encodable {
+           var type: String // 'function'
+           var function: LLMFunction
+       }
    }
 
-    private struct ChatCompletionStreamingResponse: Codable {
+    fileprivate struct ChatCompletionStreamingResponse: Codable {
         struct Choice: Codable {
             struct MessageDelta: Codable {
+                /*
+                 Examples of tool call deltas:
+                 {"id":"chatcmpl-9ljKmkEpJQVVVC8nCUJdlwfIRnaAg","object":"chat.completion.chunk","created":1721162708,"model":"gpt-4o-2024-05-13","system_fingerprint":"fp_5e997b69d8","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"id":"call_mXsoT1VOsu4d8jYToWdUdi7L","type":"function","function":{"name":"eval","arguments":""}}]},"logprobs":null,"finish_reason":null}]}
+                 {"id":"chatcmpl-9ljKmkEpJQVVVC8nCUJdlwfIRnaAg","object":"chat.completion.chunk","created":1721162708,"model":"gpt-4o-2024-05-13","system_fingerprint":"fp_5e997b69d8","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{\"ex"}}]},"logprobs":null,"finish_reason":null}]}
+                 {"id":"chatcmpl-9ljKmkEpJQVVVC8nCUJdlwfIRnaAg","object":"chat.completion.chunk","created":1721162708,"model":"gpt-4o-2024-05-13","system_fingerprint":"fp_5e997b69d8","choices":[{"index":0,"delta":{"tool_calls":[{"index":0,"function":{"arguments":"pr\": "}}]},"logprobs":null,"finish_reason":null}]}
+                 */
                 var role: Message.Role?
                 var content: String?
-                var function_call: PartialFunctionCall?
+                var tool_calls: [PartialToolCall]?
 
-                struct PartialFunctionCall: Codable {
-                    var name: String?
-                    var arguments: String?
+                struct PartialToolCall: Codable {
+                    var index: Int
+                    var id: String?
+                    var type: String?
+                    var function: Function?
+
+                    struct Function: Codable {
+                        var name: String?
+                        var arguments: String?
+                    }
                 }
             }
             var delta: MessageDelta
@@ -218,8 +264,7 @@ extension ChatGPT: ChatLLM {
 
     public func completeStreamingWithJsonHint(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
         var model = self
-        // TODO: Re-enable auto json mode
-//        model.options.jsonMode = true
+        model.options.jsonMode = true
         return model.completeStreaming(prompt: prompt)
     }
 
@@ -228,7 +273,7 @@ extension ChatGPT: ChatLLM {
         let responsePrefill: String = (prompt.last?.role == .assistant ? prompt.last?.content : nil) ?? ""
 
         // `printCost` requires not streaming the response.
-        if options.printCost {
+        if options.printCost || ChatGPT.debug {
             return AsyncThrowingStream { cont in
                 Task {
                     do {
@@ -251,7 +296,7 @@ extension ChatGPT: ChatLLM {
        return AsyncThrowingStream { continuation in
            let src = EventSource(urlRequest: request)
 
-           var message = Message(role: .assistant, content: [.text(responsePrefill)])
+           var message = Message(assistantWithContent: [.text(responsePrefill)])
 
            src.onComplete { statusCode, reconnect, error in
                if let statusCode, statusCode / 100 == 2 {
@@ -271,16 +316,21 @@ extension ChatGPT: ChatLLM {
            }
            src.onMessage { id, event, data in
                guard let data, data != "[DONE]" else { return }
-//               print(data)
                do {
                    let decoded = try JSONDecoder().decode(ChatCompletionStreamingResponse.self, from: Data(data.utf8))
                    if let delta = decoded.choices.first?.delta {
                        message.role = delta.role ?? message.role
                        message.content = [.text(message.contentAsText + (delta.content ?? ""))]
-                       if let functionDelta = delta.function_call {
-                           message.function_call = message.function_call ?? .init(name: "", arguments: "")
-                           message.function_call?.name += functionDelta.name ?? ""
-                           message.function_call?.arguments += functionDelta.arguments ?? ""
+                       // TODO: Reimplement streaming
+                       for toolDelta in delta.tool_calls ?? [] {
+                           if message.tool_calls == nil { message.tool_calls = [] }
+                           while toolDelta.index >= message.tool_calls!.count {
+                               message.tool_calls!.append(.init(id: "", type: "", function: .init(id: "", name: "", arguments: "")))
+                           }
+                           message.tool_calls![toolDelta.index].apply(delta: toolDelta)
+//                           message.function_call = message.function_call ?? .init(name: "", arguments: "")
+//                           message.function_call?.name += functionDelta.name ?? ""
+//                           message.function_call?.arguments += functionDelta.arguments ?? ""
                        }
                        continuation.yield(message.asLLMMessage)
                    }
@@ -302,12 +352,12 @@ extension ChatGPT: ChatLLM {
 
     func createChatRequest(prompt: [LLMMessage], functions: [LLMFunction], stream: Bool, n: Int? = nil, logProbs: Bool = false) -> URLRequest {
         let cr = ChatCompletionRequest(
-            messages: prompt.map { $0.asChatGPT },
+            messages: prompt.flatMap { $0.asChatGPT },
             model: options.model.name,
             temperature: options.temperature,
             stream: stream,
             stop: options.stop.nilIfEmptyArray,
-            functions: functions.nilIfEmptyArray,
+            tools: functions.map { ChatCompletionRequest.Tool(type: "function", function: $0) }.nilIfEmptyArray,
             response_format: options.jsonMode ? .init(type: "json_object") : nil,
             max_tokens: options.max_tokens,
             logprobs: logProbs ? true : nil,
@@ -326,49 +376,89 @@ extension ChatGPT: ChatLLM {
    }
 }
 
-private extension LLMMessage {
-    var asChatGPT: ChatGPT.Message {
-        if let functionResp = functionResponses.first {
-            return .init(role: .function, content: [.text(functionResp.text)], nameOfFunctionThatProduced: functionResp.functionName)
+private extension ChatGPT.Message.ToolCall {
+    mutating func apply(delta: ChatGPT.ChatCompletionStreamingResponse.Choice.MessageDelta.PartialToolCall) {
+        if let id = delta.id {
+            self.id += id
         }
-        var msg = ChatGPT.Message(role: role.asChatGPT, content: [], functionCall: functionCall)
-        for image in images {
-            msg.content.append(.image(url: image.url.absoluteString, detail: image.detail ?? .auto))
+        if let type = delta.type {
+            self.type += type
         }
-        if msg.content.count == 0 || self.content.nilIfEmpty != nil {
-            msg.content.append(.text(self.content))
+        if let fn = delta.function {
+            self.function.name += fn.name ?? ""
+            self.function.arguments += fn.arguments ?? ""
         }
-        return msg
+//        message.function_call = message.function_call ?? .init(name: "", arguments: "")
+//        message.function_call?.name += functionDelta.name ?? ""
+//        message.function_call?.arguments += functionDelta.arguments ?? ""
     }
 }
 
-private extension LLMMessage.Role {
-    var asChatGPT: ChatGPT.Message.Role {
-        switch self {
-        case .assistant: return .assistant
-        case .system: return .system
-        case .user: return .user
-        case .function: return .function
+private extension LLMMessage {
+    var asChatGPT: [ChatGPT.Message] {
+        var content = [ChatGPT.Message.Content]()
+        for image in images {
+            content.append(.image(url: image.url.absoluteString, detail: image.detail ?? .auto))
+        }
+        if self.content.count == 0 || self.content.nilIfEmpty != nil {
+            content.append(.text(self.content))
+        }
+
+        switch role {
+        case .function:
+            return functionResponses.map { resp in
+                return .init(functionResponse: resp.text, toolCallId: resp.id ?? "no_id")
+            }
+        case .assistant:
+            let toolCalls = self.functionCalls.map { ChatGPT.Message.ToolCall(id: $0.id ?? "no_id", type: "function", function: $0) }
+            return [.init(assistantWithContent: content, toolCalls: toolCalls)]
+        case .user:
+            return [.init(userWithContent: content)]
+        case .system:
+            return [.init(systemWithContent: content)]
         }
     }
 }
+
+//private extension LLMMessage.Role {
+//    var asChatGPT: ChatGPT.Message.Role {
+//        switch self {
+//        case .assistant: return .assistant
+//        case .system: return .system
+//        case .user: return .user
+//        case .function: return .function
+//        }
+//    }
+//}
 
 extension ChatGPT.Message {
     var asLLMMessage: LLMMessage {
-        LLMMessage(role: role.asLLMMessage, content: contentAsText, functionCall: function_call, nameOfFunctionThatProduced: name)
-    }
-}
-
-private extension ChatGPT.Message.Role {
-    var asLLMMessage: LLMMessage.Role {
-        switch self {
-        case .assistant: return .assistant
-        case .system: return .system
-        case .user: return .user
-        case .function: return .function
+        switch role {
+        case .assistant:
+            return LLMMessage(assistantMessageWithContent: contentAsText, functionCalls: (self.tool_calls ?? []).map({ call in
+                return LLMMessage.FunctionCall(id: call.id, name: call.function.name, arguments: call.function.arguments)
+            }))
+        case .system:
+            return LLMMessage(role: .system, content: contentAsText)
+        case .user:
+            return LLMMessage(role: .user, content: contentAsText) // TODO: support images in this conversion, which isn't used to actually call the api. may not be necessary, but would be nice to support.
+        case .tool:
+            // HACK: functionName may need to be made nil on LLMMessage.FunctionResponse
+            return LLMMessage(functionResponses: [LLMMessage.FunctionResponse(id: tool_call_id ?? "no_id", functionName: "", text: contentAsText)])
         }
     }
 }
+
+//private extension ChatGPT.Message.Role {
+//    var asLLMMessage: LLMMessage.Role {
+//        switch self {
+//        case .assistant: return .assistant
+//        case .system: return .system
+//        case .user: return .user
+//        case .function: return .tool
+//        }
+//    }
+//}
 
 extension ChatGPT: FunctionCallingLLM {
     public func complete(prompt: [LLMMessage], functions: [LLMFunction]) async throws -> LLMMessage {

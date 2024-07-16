@@ -62,7 +62,6 @@ extension LlamaCPP: ChatLLM {
             }
             var delta: MessageDelta
         }
-
         var choices: [Choice]
     }
 

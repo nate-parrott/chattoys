@@ -4,7 +4,7 @@ import ChatToys
 enum LLM: String, Equatable, Codable, CaseIterable {
     case chatGPT
     case chatGPT16k
-    case gpt4
+    case gpt4o
     case gpt4Vision
     case claude
     case ollama
@@ -20,8 +20,8 @@ enum LLM: String, Equatable, Codable, CaseIterable {
         case .chatGPT, .chatGPT16k:
             let model = (llm == .chatGPT16k) ? ChatGPT.Model.gpt35_turbo_16k : ChatGPT.Model.gpt35_turbo
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: model, printToConsole: true, printCost: false))
-        case .gpt4:
-            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
+        case .gpt4o:
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4_omni, printToConsole: true))
         case .gpt4Vision:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4_vision_preview, maxTokens: 4096))
         case .claude:
@@ -40,8 +40,8 @@ enum LLM: String, Equatable, Codable, CaseIterable {
         case .chatGPT, .chatGPT16k:
             let model = (llm == .chatGPT16k) ? ChatGPT.Model.gpt35_turbo_16k : ChatGPT.Model.gpt35_turbo
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: model, printToConsole: true, printCost: false))
-        case .gpt4:
-            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4, printToConsole: true))
+        case .gpt4o:
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4_omni, printToConsole: true))
         case .claude:
             return ClaudeNewAPI(credentials: AnthropicCredentials(apiKey: key), options: .init(model: .claude3Haiku, printToConsole: true, responsePrefix: ""))
         case .ollama:
