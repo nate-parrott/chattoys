@@ -105,11 +105,15 @@ struct FunctionCallingDemo: View {
                         received(message: partial, new: incoming == nil)
                         incoming = partial
                     }
-                    if let fn = incoming?.functionCall {
+                    var functionResponses = [LLMMessage.FunctionResponse]()
+                    for fn in incoming?.functionCalls ?? [] {
                         let res = try await self.tools.handle(functionCall: fn)
-                        received(message: .init(functionResponses: [.init(id: fn.id, functionName: fn.name, text: res)]), new: true)
+                        functionResponses.append(.init(id: fn.id, functionName: fn.name, text: res))
+                    }
+                    if functionResponses.count > 0 {
+                        received(message: .init(functionResponses: functionResponses), new: true)
                     } else {
-                        break
+                        break // Model is done responding
                     }
                 }
                 DispatchQueue.main.async {
@@ -140,18 +144,20 @@ private struct ToolChatMessage: View {
                     if message.content != "" {
                         Text(message.content).withStandardMessagePadding
                     }
-                    if let fn = message.functionCall {
+                    ForEachUnidentifiable(message.functionCalls) { fn, _ in
                         Text("\(fn.name)(\(fn.arguments))")
                             .font(.system(.body, design: .monospaced))
                             .withStandardMessagePadding
                     }
                 }
             case .function:
-                Text(message.content)
-                    .font(.system(.body, design: .monospaced))
-                    .withStandardMessagePadding
-                    .foregroundColor(.white)
-                    .background(.black)
+                ForEachUnidentifiable(message.functionResponses) { item, _ in
+                    Text(item.text)
+                        .font(.system(.body, design: .monospaced))
+                        .withStandardMessagePadding
+                        .foregroundColor(.white)
+                        .background(.black)
+                }
             }
         }
     }
