@@ -1,15 +1,14 @@
+import QuartzCore
 import Foundation
 
 public struct WebContext: Equatable, Codable {
     public struct Page: Equatable, Codable {
         public var searchResult: WebSearchResult
         public var markdown: String
-        public var markdownWithNodeIds: String?
 
-        public init(searchResult: WebSearchResult, markdown: String, markdownWithNodeIds: String? = nil) {
+        public init(searchResult: WebSearchResult, markdown: String) {
             self.searchResult = searchResult
             self.markdown = markdown
-            self.markdownWithNodeIds = markdownWithNodeIds
         }
 
         public var markdownWithSnippetAndTitle: String {
@@ -57,11 +56,7 @@ public struct WebContext: Equatable, Codable {
             } else {
                 lines.append("<webpage domain='\(page.searchResult.url.hostWithoutWWW)'>")
             }
-            if includeNodeIds, let markdownWithNodeIds = page.markdownWithNodeIds {
-                lines.append(markdownWithNodeIds)
-            } else {
-                lines.append(page.markdownWithSnippetAndTitle)
-            }
+            lines.append(page.markdownWithSnippetAndTitle)
 
             lines.append("</webpage>")
             lines.append("")
@@ -88,23 +83,24 @@ public struct WebContext: Equatable, Codable {
 }
 
 extension WebContext.Page {
-    public static func fetch(forSearchResult result: WebSearchResult, timeout: TimeInterval, urlMode: FastHTMLProcessor.URLMode = .keep) async throws -> WebContext.Page {
+    public static func fetch(forSearchResult result: WebSearchResult, timeout: TimeInterval, urlMode: FastHTMLProcessor.URLMode = .keep, addNodeIds: Bool) async throws -> WebContext.Page {
         let domain = result.url.hostWithoutWWW
 
         if domain == "reddit.com" {
+            // TODO: Handle node IDs
             return try await fetchRedditContent(forSearchResult: result, timeout: timeout, urlMode: urlMode)
         }
 
-        return try await fetchNormally(forSearchResult: result, timeout: timeout, urlMode: urlMode)
+        return try await fetchNormally(forSearchResult: result, timeout: timeout, urlMode: urlMode, addNodeIds: addNodeIds)
     }
 
-    static func fetchNormally(forSearchResult result: WebSearchResult, timeout: TimeInterval, urlMode: FastHTMLProcessor.URLMode) async throws -> WebContext.Page {
+    static func fetchNormally(forSearchResult result: WebSearchResult, timeout: TimeInterval, urlMode: FastHTMLProcessor.URLMode, addNodeIds: Bool) async throws -> WebContext.Page {
         try await withTimeout(timeout) {
             let resp = try await URLSession.shared.data(from: result.url)
             let proc = try FastHTMLProcessor(url: resp.1.url ?? result.url, data: resp.0)
-            let markdown = proc.markdown(urlMode: urlMode)
-            let markdownWithNodeIds = await MarkdownProcessor.shared.markdownWithInlineNodeIds(markdown: markdown, url: result.url.absoluteString)
-            return .init(searchResult: result, markdown: markdown, markdownWithNodeIds: markdownWithNodeIds)
+            let rawMarkdown = proc.markdown(urlMode: urlMode)
+            let markdown = await addNodeIds ? MarkdownProcessor.shared.markdownWithInlineNodeIds(markdown: rawMarkdown, url: result.url.absoluteString) : rawMarkdown
+            return .init(searchResult: result, markdown: markdown)
         }
     }
 
@@ -122,7 +118,8 @@ public extension WebContext {
         timeout: TimeInterval,
         resultCount: Int,
         charLimit: Int,
-        urlMode: FastHTMLProcessor.URLMode = .keep
+        urlMode: FastHTMLProcessor.URLMode = .keep,
+        addNodeIds: Bool = false
     ) async throws -> WebContext {
         // TODO: Rank
         let blockedDomains = Set(["youtube.com", "twitter.com", "facebook.com", "instagram.com"])
@@ -134,7 +131,7 @@ public extension WebContext {
 //            let idx = fetchableResults.firstIndex(of: result)!
             let pageOpt = try? await withTimeout(timeout, work: {
                 // We will further limit chars later
-                try? await Page.fetch(forSearchResult: result, timeout: timeout, urlMode: urlMode)
+                try? await Page.fetch(forSearchResult: result, timeout: timeout, urlMode: urlMode, addNodeIds: addNodeIds)
             })
             if let page = pageOpt, page.markdown.nilIfEmptyOrJustWhitespace != nil, page.markdown.count >= 20 {
                 return page
