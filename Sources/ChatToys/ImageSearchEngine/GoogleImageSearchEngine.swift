@@ -87,7 +87,7 @@ public struct GoogleImageSearchEngine_Fuzi: ImageSearchEngine {
     }
 
     private func extract(html: String, baseURL: URL, query: String) throws -> [ImageSearchResult] {
-        let doc = try Fuzi.HTMLDocument(string: html)
+        let doc = try Fuzi.HTMLDocument(stringSAFE: html)
         print("START HTML:\n\(html)\nEND HTML")
 
         return doc.css("a[href]")

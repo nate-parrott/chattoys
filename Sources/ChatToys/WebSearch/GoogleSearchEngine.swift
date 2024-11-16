@@ -40,7 +40,7 @@ public struct GoogleSearchEngine: WebSearchEngine {
 
     func extract(html: String, baseURL: URL, query: String) throws -> WebSearchResponse {
 //        let doc = try SwiftSoup.parse(html, baseURL.absoluteString)
-        let doc = try Fuzi.HTMLDocument(string: html)
+        let doc = try Fuzi.HTMLDocument(stringSAFE: html)
 
         guard let main = doc.css("#main").first else {
             throw SearchError.missingMainElement
@@ -188,5 +188,13 @@ private extension Fuzi.XMLElement {
             return self
         }
         return parent?.nthParent(n - 1)
+    }
+}
+
+extension HTMLDocument {
+    // Work around iOS 18 crash when doing HTMLDocument(string: ...) directly
+    // Seems to be fine if you convert the string to data first
+    public convenience init(stringSAFE: String) throws {
+        try self.init(data: Data(stringSAFE.utf8))
     }
 }
