@@ -83,7 +83,7 @@ public struct WebContext: Equatable, Codable {
 }
 
 extension WebContext.Page {
-    public static func fetch(forSearchResult result: WebSearchResult, timeout: TimeInterval, urlMode: FastHTMLProcessor.URLMode = .keep, addNodeIds: Bool) async throws -> WebContext.Page {
+    public static func fetch(forSearchResult result: WebSearchResult, timeout: TimeInterval, urlMode: FastHTMLProcessor.URLMode = .keep, addNodeIds: Bool = false) async throws -> WebContext.Page {
         let domain = result.url.hostWithoutWWW
 
         if domain == "reddit.com" {

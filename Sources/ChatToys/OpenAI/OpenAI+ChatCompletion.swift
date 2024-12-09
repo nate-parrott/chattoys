@@ -105,14 +105,26 @@ extension ChatGPT: ChatLLM {
             enum ContentType: String, Equatable, Codable, Hashable {
                 case text = "text"
                 case imageURL = "image_url"
+                case audio = "input_audio"
             }
             struct ImageURL: Equatable, Codable, Hashable {
                 var url: String
                 var detail: LLMMessage.Image.Detail?
             }
+            struct InputAudio: Equatable, Codable, Hashable {
+                enum AudioFormat: String, Equatable, Codable {
+                    case wav
+                    case mp3
+                }
+
+                var format: AudioFormat
+                var data: String // base64-encoded
+            }
+
             var type: ContentType
             var text: String?
             var image_url: ImageURL?
+            var input_audio: InputAudio?
 
             static func text(_ str: String) -> Content {
                 .init(type: .text, text: str)
@@ -120,6 +132,10 @@ extension ChatGPT: ChatLLM {
 
             static func image(url: String, detail: LLMMessage.Image.Detail) -> Content {
                 .init(type: .imageURL, image_url: .init(url: url, detail: detail))
+            }
+
+            static func audioData(format: InputAudio.AudioFormat, data: Data) -> Content {
+                .init(type: .audio, input_audio: .init(format: format, data: data.base64EncodedString()))
             }
         }
 
@@ -287,7 +303,12 @@ extension ChatGPT: ChatLLM {
             }
         }
 
-        let request = createChatRequest(prompt: prompt, functions: functions, stream: true)
+        let request: URLRequest
+        do {
+            request = try createChatRequest(prompt: prompt, functions: functions, stream: true)
+        } catch {
+            return AsyncThrowingStream.just({ throw error })
+        }
 
         if options.printToConsole {
             print("OpenAI request:\n\((prompt.asConversationString))")
@@ -350,9 +371,9 @@ extension ChatGPT: ChatLLM {
        return json.choices.first?.delta.content
    }
 
-    func createChatRequest(prompt: [LLMMessage], functions: [LLMFunction], stream: Bool, n: Int? = nil, logProbs: Bool = false) -> URLRequest {
-        let cr = ChatCompletionRequest(
-            messages: prompt.flatMap { $0.asChatGPT },
+    func createChatRequest(prompt: [LLMMessage], functions: [LLMFunction], stream: Bool, n: Int? = nil, logProbs: Bool = false) throws -> URLRequest {
+        let cr = try ChatCompletionRequest(
+            messages: prompt.flatMap { try $0.asChatGPT() },
             model: options.model.name,
             temperature: options.temperature,
             stream: stream,
@@ -394,11 +415,22 @@ private extension ChatGPT.Message.ToolCall {
     }
 }
 
+private enum ChatGPTError: Error {
+    case unsupportedInputAudioFormat(String)
+}
+
 private extension LLMMessage {
-    var asChatGPT: [ChatGPT.Message] {
+    func asChatGPT() throws -> [ChatGPT.Message] {
         var content = [ChatGPT.Message.Content]()
         for image in images {
             content.append(.image(url: image.url.absoluteString, detail: image.detail ?? .auto))
+        }
+        for audio in inputAudio {
+            if let format = audio.format.asChatGPT {
+                content.append(.audioData(format: format, data: audio.data))
+            } else {
+                throw ChatGPTError.unsupportedInputAudioFormat(audio.format.rawValue)
+            }
         }
         if self.content.count == 0 || self.content.nilIfEmpty != nil {
             content.append(.text(self.content))
@@ -416,6 +448,15 @@ private extension LLMMessage {
             return [.init(userWithContent: content)]
         case .system:
             return [.init(systemWithContent: content)]
+        }
+    }
+}
+
+extension LLMMessage.Audio.AudioFormat {
+    var asChatGPT: ChatGPT.Message.Content.InputAudio.AudioFormat? {
+        switch self {
+        case .mp3: return .mp3
+        case .wav: return .wav
         }
     }
 }

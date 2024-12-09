@@ -12,4 +12,8 @@ extension LLMMessage {
         }
         images.append(.init(url: b64, detail: detail))
     }
+
+    public mutating func add(audio: LLMMessage.Audio) {
+        inputAudio.append(audio)
+    }
 }

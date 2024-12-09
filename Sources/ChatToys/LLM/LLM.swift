@@ -68,9 +68,25 @@ public struct LLMMessage: Equatable, Codable {
         }
     }
 
+    public struct Audio: Equatable, Codable {
+        public enum AudioFormat: String, Equatable, Codable {
+            case mp3
+            case wav
+        }
+
+        public var format: AudioFormat
+        public var data: Data
+
+        public init(format: AudioFormat, data: Data) {
+            self.format = format
+            self.data = data
+        }
+    }
+
     public var role: Role
     public var content: String
     public var images = [Image]() // For multimodal models. URLs can be base64
+    public var inputAudio = [Audio]()
 
     // For role=assistant
     public var functionCalls: [FunctionCall] = []

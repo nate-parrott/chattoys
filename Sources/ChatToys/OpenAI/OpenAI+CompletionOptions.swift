@@ -7,7 +7,7 @@ public struct CompletionOption: Equatable, Codable, Hashable {
 
 extension ChatGPT {
     public func completeWithOptions(_ n: Int, prompt: [LLMMessage]) async throws -> [CompletionOption] {
-        let req = createChatRequest(prompt: prompt, functions: [], stream: false, n: n, logProbs: true)
+        let req = try createChatRequest(prompt: prompt, functions: [], stream: false, n: n, logProbs: true)
         let (data, _) = try await URLSession.shared.data(for: req)
         let response = try JSONDecoder().decode(NonStreamingResponse.self, from: data)
         return response.choices.compactMap { choice in
