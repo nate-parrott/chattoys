@@ -70,8 +70,9 @@ public struct ChatGPT {
         public var printCost: Bool
         public var jsonMode: Bool
         public var baseURL: URL // Use to call OpenAI-compatible models that are not actually OpenAI's
+        public var supressJsonMode: Bool // default false; set true on models that don't support it like gpt-4o-audio-preview
 
-        public init(temp: Double = 0, model: Model = .gpt35_turbo, maxTokens: Int? = nil, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false, baseURL: URL = URL(string: "https://api.openai.com/v1/chat/completions")!) {
+        public init(temp: Double = 0, model: Model = .gpt35_turbo, maxTokens: Int? = nil, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false, baseURL: URL = URL(string: "https://api.openai.com/v1/chat/completions")!, supressJsonMode: Bool = false) {
             self.temperature = temp
             self.model = model
             self.max_tokens = maxTokens
@@ -80,6 +81,7 @@ public struct ChatGPT {
             self.printCost = printCost
             self.jsonMode = jsonMode
             self.baseURL = baseURL
+            self.supressJsonMode = supressJsonMode
         }
     }
 
@@ -280,7 +282,9 @@ extension ChatGPT: ChatLLM {
 
     public func completeStreamingWithJsonHint(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
         var model = self
-        model.options.jsonMode = true
+        if !model.options.supressJsonMode {
+            model.options.jsonMode = true
+        }
         return model.completeStreaming(prompt: prompt)
     }
 
