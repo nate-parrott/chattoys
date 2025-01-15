@@ -37,7 +37,9 @@ public struct LLMMessage: Equatable, Codable {
 
         public func decodeArguments<T: Codable>(as kind: T.Type, stream: Bool) -> T? {
             let args = stream ? self.arguments.capJson : self.arguments
-            return try? JSONDecoder().decode(kind, from: Data(args.utf8))
+            // When functions have no args, the args JSON may be an empty string
+            let argsOrEmptyDict = args.nilIfEmpty ?? "{}"
+            return try? JSONDecoder().decode(kind, from: Data(argsOrEmptyDict.utf8))
         }
     }
 

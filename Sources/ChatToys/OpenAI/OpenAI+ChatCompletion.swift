@@ -360,7 +360,8 @@ extension ChatGPT: ChatLLM {
                        continuation.yield(message.asLLMMessage)
                    }
                } catch {
-                   print("Chat completion error: \(error)")
+                   print("🤖 ChatGPT error: \(error)")
+                   print("Response:\n\(data)")
                    continuation.yield(with: .failure(error))
                }
            }

@@ -49,7 +49,7 @@ extension ChatLLM {
 //                            break
                         }
                     }
-                    print(lastText)
+                    print("Last text:\n", lastText)
                     let json = try JSONDecoder().decode(T.self, from: lastText.capJson.data(using: .utf8)!)
                     cont.yield(json)
                     cont.finish()

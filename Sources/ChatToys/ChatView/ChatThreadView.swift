@@ -5,6 +5,7 @@ public struct ChatThreadView<Message, ID: Hashable, MessageView: View>: View {
     public let id: (Message, Int) -> ID
     public let messageView: (Message) -> MessageView
     public let typingIndicator: Bool
+    public var headerView: AnyView?
 
     @State private var messageCountToShow = 15
 
@@ -12,12 +13,14 @@ public struct ChatThreadView<Message, ID: Hashable, MessageView: View>: View {
         messages: [Message], 
         id: @escaping (Message, Int) -> ID,
         messageView: @escaping (Message) -> MessageView,
-        typingIndicator: Bool = false
+        typingIndicator: Bool = false,
+        headerView: AnyView?
         ) {
         self.messages = messages
         self.id = id
         self.messageView = messageView
         self.typingIndicator = typingIndicator
+        self.headerView = headerView
     }
 
     public var body: some View {
@@ -48,6 +51,8 @@ public struct ChatThreadView<Message, ID: Hashable, MessageView: View>: View {
     @ViewBuilder private var scrollView: some View {
         ScrollView {
             LazyVStack(spacing: 10) {
+                headerView
+                
                 TruncatedForEach(items: identifiableMessages, itemsToShow: messageCountToShow, showMoreButton: {
                     LoadMoreButton {
                         messageCountToShow += 5
