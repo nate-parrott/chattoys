@@ -374,8 +374,8 @@ extension ChatGPT: ChatLLM {
                    enum ServerError: Error {
                        case error(String)
                    }
-                   if let parsedAsError = try? JSONDecoder().decode(ServerError, from: data) {
-                       continuation.yield(with: ServerError.error(parsedAsError.error.message))
+                   if let parsedAsError = try? JSONDecoder().decode(ErrorMsg.self, from: data.data(using: .utf8)!) {
+                       continuation.yield(with: .failure(ServerError.error(parsedAsError.error.message)))
                    } else {
                        // Throw original error
                        continuation.yield(with: .failure(error))
