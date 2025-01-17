@@ -13,9 +13,9 @@ public struct GoogleSearchEngine: WebSearchEngine {
         urlComponents.queryItems = [
             URLQueryItem(name: "q", value: query),
             URLQueryItem(name: "udm", value: "14"),
-//            URLQueryItem(name: "gbv", value: "1"), // google basic version = 1 (no js)
+            URLQueryItem(name: "gbv", value: "1"), // google basic version = 1 (no js)
         ]
-        let session = URLSession.shared // URLSession(configuration: .ephemeral)
+        let session = URLSession(configuration: .ephemeral)
         var request = URLRequest(url: urlComponents.url!)
         request.httpShouldHandleCookies = false
         request.setValue("text/html,application/xhtml+xml", forHTTPHeaderField: "Accept")
@@ -26,7 +26,9 @@ public struct GoogleSearchEngine: WebSearchEngine {
         guard let html = String(data: data, encoding: .utf8) else {
             throw SearchError.invalidHTML
         }
-//        print(html)
+        print("[BEGIN HTML]")
+        print(html)
+        print("[END HTML]")
         let baseURL = response.url ?? urlComponents.url!
 
         let t2 = CACurrentMediaTime()

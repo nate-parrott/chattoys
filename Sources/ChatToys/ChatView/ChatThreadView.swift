@@ -14,7 +14,7 @@ public struct ChatThreadView<Message, ID: Hashable, MessageView: View>: View {
         id: @escaping (Message, Int) -> ID,
         messageView: @escaping (Message) -> MessageView,
         typingIndicator: Bool = false,
-        headerView: AnyView?
+        headerView: AnyView? = nil
         ) {
         self.messages = messages
         self.id = id

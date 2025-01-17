@@ -362,7 +362,24 @@ extension ChatGPT: ChatLLM {
                } catch {
                    print("🤖 ChatGPT error: \(error)")
                    print("Response:\n\(data)")
-                   continuation.yield(with: .failure(error))
+                   // Try to parse error messages. OpenRouter sends these; not sure if others do too
+                   // {"error":{"message":"More credits are required to run this request. 8192 token capacity required, 2340 available. To increase, visit https://openrouter.ai/credits and add more credits","code":402}}
+                   struct ErrorMsg: Codable {
+                       var error: ErrorObj
+                       struct ErrorObj: Codable {
+                           var message: String
+                           var code: Int?
+                       }
+                   }
+                   enum ServerError: Error {
+                       case error(String)
+                   }
+                   if let parsedAsError = try? JSONDecoder().decode(ServerError, from: data) {
+                       continuation.yield(with: ServerError.error(parsedAsError.error.message))
+                   } else {
+                       // Throw original error
+                       continuation.yield(with: .failure(error))
+                   }
                }
            }
            src.connect()

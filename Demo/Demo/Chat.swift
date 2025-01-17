@@ -15,7 +15,8 @@ struct ChatDemo: View {
                 messageView: { message in
                     TextMessageBubble(Text(message.displayText), isFromUser: message.role == .user)
                 },
-                typingIndicator: botIsTyping
+                typingIndicator: botIsTyping,
+                headerView: nil
             )
             Divider()
             ChatInputView_Multimodal(
