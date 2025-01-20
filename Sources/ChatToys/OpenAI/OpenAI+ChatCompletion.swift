@@ -10,8 +10,24 @@ public extension URL {
     }
 }
 
+//type ResponseUsage = {
+//  /** Including images and tools if any */
+//  prompt_tokens: number;
+//  /** The tokens generated */
+//  completion_tokens: number;
+//  /** Sum of the above two fields */
+//  total_tokens: number;
+//}
+
+public struct Usage: Equatable, Codable {
+    public var prompt_tokens: Int
+    public var completion_tokens: Int
+    public var total_tokens: Int
+}
+
 public struct ChatGPT {
     static let debug = false
+    public var reportUsage: ((Usage) -> Void)?
 
     public enum Model: Equatable, Codable {
         case gpt35_turbo
@@ -25,7 +41,7 @@ public struct ChatGPT {
         case gpt4_vision_preview
         case custom(String, Int)
 
-        var name: String {
+        public var name: String {
             switch self {
             case .gpt35_turbo:
                 return "gpt-3.5-turbo"
@@ -270,6 +286,7 @@ extension ChatGPT: ChatLLM {
         }
 
         var choices: [Choice]
+        var usage: Usage?
     }
 
     public func completeStreaming(prompt: [LLMMessage]) -> AsyncThrowingStream<LLMMessage, Error> {
@@ -358,6 +375,9 @@ extension ChatGPT: ChatLLM {
 //                           message.function_call?.arguments += functionDelta.arguments ?? ""
                        }
                        continuation.yield(message.asLLMMessage)
+                   }
+                   if let usage = decoded.usage, let reportUsage = self.reportUsage {
+                       reportUsage(usage)
                    }
                } catch {
                    print("🤖 ChatGPT error: \(error)")

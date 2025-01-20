@@ -34,15 +34,17 @@ public struct TypedFunction<T: FunctionArgs> {
     public var name: String
     public var description: String
     public var type: T.Type
+    public var strict = false
 
-    public init(name: String, description: String, type: T.Type) {
+    public init(name: String, description: String, type: T.Type, strict: Bool = false) {
         self.name = name
         self.description = description
         self.type = type
+        self.strict = strict
     }
 
     public var asLLMFunction: LLMFunction {
-        LLMFunction(name: name, description: description, parameters: T.schema)
+        LLMFunction(name: name, description: description, parameters: T.schema, strict: strict ? true : nil)
     }
 
     public func checkMatch(call: LLMMessage.FunctionCall, streaming: Bool = false) -> T? {

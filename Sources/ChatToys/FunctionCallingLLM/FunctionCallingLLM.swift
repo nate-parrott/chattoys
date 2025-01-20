@@ -10,11 +10,13 @@ public struct LLMFunction: Equatable, Encodable {
     public var name: String
     public var description: String
     public var parameters: JsonSchema
+    public var strict: Bool?
 
-    public init(name: String, description: String, parameters: [String: JsonSchema], required: [String]? = nil) {
+    public init(name: String, description: String, parameters: [String: JsonSchema], required: [String]? = nil, strict: Bool? = nil) {
         self.name = name
         self.description = description
         self.parameters = .object(description: nil, properties: parameters, required: required ?? Array(parameters.keys))
+        self.strict = strict
     }
 
     public indirect enum JsonSchema: Equatable, Encodable {
