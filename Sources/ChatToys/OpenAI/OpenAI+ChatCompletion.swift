@@ -19,6 +19,7 @@ public extension URL {
 //  total_tokens: number;
 //}
 
+// This comes from the OpenRouter API, not sure if OpenAI themselves do it this way
 public struct Usage: Equatable, Codable {
     public var prompt_tokens: Int
     public var completion_tokens: Int
