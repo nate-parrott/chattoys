@@ -6,14 +6,20 @@ enum ImageError: Error {
 
 extension LLMMessage {
     public mutating func add(image: ChatUINSImage, detail: LLMMessage.Image.Detail = .auto, maxSize: CGFloat? = nil) throws {
-        let maxDim = min(maxSize ?? 2000, detail == .low ? 512 : 2000)
-        guard let b64 = image.resizedWithMaxDimension(maxDimension: maxDim)?.asBase64DataURL() else {
-            throw ImageError.failedToConvertToDataURL
-        }
-        images.append(.init(url: b64, detail: detail))
+        try images.append(image.asLLMImage(detail: detail, maxSize: maxSize))
     }
 
     public mutating func add(audio: LLMMessage.Audio) {
         inputAudio.append(audio)
+    }
+}
+
+extension ChatUINSImage {
+    public func asLLMImage(detail: LLMMessage.Image.Detail = .auto, maxSize: CGFloat? = nil) throws -> LLMMessage.Image {
+        let maxDim = min(maxSize ?? 2000, detail == .low ? 512 : 2000)
+        guard let b64 = resizedWithMaxDimension(maxDimension: maxDim)?.asBase64DataURL() else {
+            throw ImageError.failedToConvertToDataURL
+        }
+        return .init(url: b64, detail: detail)
     }
 }
