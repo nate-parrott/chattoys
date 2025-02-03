@@ -24,11 +24,19 @@ public struct Usage: Equatable, Codable {
     public var prompt_tokens: Int
     public var completion_tokens: Int
     public var total_tokens: Int
+    public var completion_tokens_details: CompletionDetails?
+
+    public struct CompletionDetails: Equatable, Codable {
+        public var accepted_prediction_tokens: Int?
+        public var rejected_prediction_tokens: Int?
+        public var reasoning_tokens: Int?
+    }
 }
 
 public struct ChatGPT {
     static let debug = false
     public var reportUsage: ((Usage) -> Void)?
+    public var prediction: String? // https://platform.openai.com/docs/guides/predicted-outputs
 
     public enum Model: Equatable, Codable {
         case gpt35_turbo
@@ -247,6 +255,7 @@ extension ChatGPT: ChatLLM {
        var max_tokens: Int?
        var logprobs: Bool?
        var n: Int?
+       var prediction: Prediction?
 
        struct ResponseFormat: Codable {
            var type: String  = "text"
@@ -255,6 +264,11 @@ extension ChatGPT: ChatLLM {
        struct Tool: Encodable {
            var type: String // 'function'
            var function: LLMFunction
+       }
+
+       struct Prediction: Codable {
+           var type = "content"
+           var content: String
        }
    }
 
@@ -425,7 +439,8 @@ extension ChatGPT: ChatLLM {
             response_format: options.jsonMode ? .init(type: "json_object") : nil,
             max_tokens: options.max_tokens,
             logprobs: logProbs ? true : nil,
-            n: n
+            n: n,
+            prediction: prediction != nil ? .init(content: prediction!) : nil
         )
 
        var request = URLRequest(url: options.baseURL)
