@@ -14,8 +14,8 @@ extension LLMMessage {
     }
 }
 
-extension ChatUINSImage {
-    public func asLLMImage(detail: LLMMessage.Image.Detail = .auto, maxSize: CGFloat? = nil) throws -> LLMMessage.Image {
+public extension ChatUINSImage {
+    func asLLMImage(detail: LLMMessage.Image.Detail = .auto, maxSize: CGFloat? = nil) throws -> LLMMessage.Image {
         let maxDim = min(maxSize ?? 2000, detail == .low ? 512 : 2000)
         guard let b64 = resizedWithMaxDimension(maxDimension: maxDim)?.asBase64DataURL() else {
             throw ImageError.failedToConvertToDataURL

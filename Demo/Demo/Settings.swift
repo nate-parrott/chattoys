@@ -51,7 +51,7 @@ enum LLM: String, Equatable, Codable, CaseIterable {
         case .perplexityOnline7b:
             return PerplexityLLM(credentials: .init(apiKey: key), options: .init(model: .pplx7bOnline))
         case .groq:
-            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(temp: 0, model: .custom("mixtral-8x7b-32768", 32000), maxTokens: 1024, stop: ["|user|:"], baseURL: .groqOpenAIChatEndpoint))
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(temp: 0, model: .custom("deepseek-r1-distill-llama-70b", 32000), maxTokens: 1024, stop: ["|user|:"], baseURL: .groqOpenAIChatEndpoint))
         }
     }
 }
