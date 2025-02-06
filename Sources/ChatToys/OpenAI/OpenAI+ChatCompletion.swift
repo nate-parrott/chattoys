@@ -10,15 +10,6 @@ public extension URL {
     }
 }
 
-//type ResponseUsage = {
-//  /** Including images and tools if any */
-//  prompt_tokens: number;
-//  /** The tokens generated */
-//  completion_tokens: number;
-//  /** Sum of the above two fields */
-//  total_tokens: number;
-//}
-
 // This comes from the OpenRouter API, not sure if OpenAI themselves do it this way
 public struct Usage: Equatable, Codable {
     public var prompt_tokens: Int
