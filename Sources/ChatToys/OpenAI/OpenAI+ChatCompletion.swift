@@ -79,8 +79,9 @@ public struct ChatGPT {
         public var jsonMode: Bool
         public var baseURL: URL // Use to call OpenAI-compatible models that are not actually OpenAI's
         public var supressJsonMode: Bool // default false; set true on models that don't support it like gpt-4o-audio-preview
-
-        public init(temp: Double = 0, model: Model = .gpt35_turbo, maxTokens: Int? = nil, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false, baseURL: URL = URL(string: "https://api.openai.com/v1/chat/completions")!, supressJsonMode: Bool = false) {
+        public var headers: [String: String]? // Additional HTTP headers to send with requests
+        
+        public init(temp: Double = 0, model: Model = .gpt35_turbo, maxTokens: Int? = nil, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false, baseURL: URL = URL(string: "https://api.openai.com/v1/chat/completions")!, supressJsonMode: Bool = false, headers: [String: String]? = nil) {
             self.temperature = temp
             self.model = model
             self.max_tokens = maxTokens
@@ -90,6 +91,7 @@ public struct ChatGPT {
             self.jsonMode = jsonMode
             self.baseURL = baseURL
             self.supressJsonMode = supressJsonMode
+            self.headers = headers
         }
     }
 
@@ -425,6 +427,11 @@ extension ChatGPT: ChatLLM {
        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
        if let orgId = credentials.orgId {
            request.setValue(orgId, forHTTPHeaderField: "OpenAI-Organization")
+       }
+       if let headers = options.headers {
+           for (key, value) in headers {
+               request.setValue(value, forHTTPHeaderField: key)
+           }
        }
        request.httpBody = try! JSONEncoder().encode(cr)
        return request
