@@ -88,8 +88,23 @@ public struct ChatGPT {
         public var baseURL: URL // Use to call OpenAI-compatible models that are not actually OpenAI's
         public var supressJsonMode: Bool // default false; set true on models that don't support it like gpt-4o-audio-preview
         public var headers: [String: String]? // Additional HTTP headers to send with requests
+        public var openRouterOptions: OpenRouterOptions?
         
-        public init(temp: Double = 0, model: Model = .gpt35_turbo, maxTokens: Int? = nil, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false, baseURL: URL = URL(string: "https://api.openai.com/v1/chat/completions")!, supressJsonMode: Bool = false, headers: [String: String]? = nil) {
+        public struct OpenRouterOptions: Equatable, Codable {
+            public enum ProviderSort: String, Equatable, Codable {
+                case price
+                case throughput 
+                case latency
+            }
+            
+            public var sort: ProviderSort?
+            
+            public init(sort: ProviderSort? = nil) {
+                self.sort = sort
+            }
+        }
+        
+        public init(temp: Double = 0, model: Model = .gpt35_turbo, maxTokens: Int? = nil, stop: [String] = [], printToConsole: Bool = false, printCost: Bool = false, jsonMode: Bool = false, baseURL: URL = URL(string: "https://api.openai.com/v1/chat/completions")!, supressJsonMode: Bool = false, headers: [String: String]? = nil, openRouterOptions: OpenRouterOptions? = nil) {
             self.temperature = temp
             self.model = model
             self.max_tokens = maxTokens
@@ -100,6 +115,7 @@ public struct ChatGPT {
             self.baseURL = baseURL
             self.supressJsonMode = supressJsonMode
             self.headers = headers
+            self.openRouterOptions = openRouterOptions
         }
     }
 
@@ -249,6 +265,15 @@ extension ChatGPT: ChatLLM {
        var logprobs: Bool?
        var n: Int?
        var prediction: Prediction?
+       var provider: Provider?
+       
+       struct Provider: Encodable {
+           var sort: String?
+           
+           init(sort: Options.OpenRouterOptions.ProviderSort?) {
+               self.sort = sort?.rawValue
+           }
+       }
 
        struct ResponseFormat: Codable {
            var type: String  = "text"
@@ -433,7 +458,8 @@ extension ChatGPT: ChatLLM {
             max_tokens: options.max_tokens,
             logprobs: logProbs ? true : nil,
             n: n,
-            prediction: prediction != nil ? .init(content: prediction!) : nil
+            prediction: prediction != nil ? .init(content: prediction!) : nil,
+            provider: options.openRouterOptions?.asProviderStruct
         )
 
        var request = URLRequest(url: options.baseURL)
@@ -564,5 +590,11 @@ extension ChatGPT: FunctionCallingLLM {
 
     public func completeStreaming(prompt: [LLMMessage], functions: [LLMFunction]) -> AsyncThrowingStream<LLMMessage, Error> {
         _completeStreaming(prompt: prompt, functions: functions)
+    }
+}
+
+extension ChatGPT.Options.OpenRouterOptions {
+    var asProviderStruct: ChatGPT.ChatCompletionRequest.Provider {
+        ChatGPT.ChatCompletionRequest.Provider(sort: sort)
     }
 }

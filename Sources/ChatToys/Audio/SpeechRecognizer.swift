@@ -3,6 +3,7 @@ import Foundation
 public enum AudioDataFormat: String {
     case mp3
     case wav
+    case m4a // whisper api only
 }
 
 public struct Transcription: Equatable, Codable {

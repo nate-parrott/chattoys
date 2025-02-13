@@ -167,12 +167,15 @@ public class FastHTMLProcessor {
             let isLast = i == childNodes.count - 1
             switch node.type {
             case .Text:
-                var text: any StringProtocol = node.stringValue.collapseWhitespaceWithoutTrimming
-                if isFirst {
-                    text = text.leadingSpacesTrimmed
-                }
-                if isLast {
-                    text = text.trailingSpacesTrimmed
+                let collapseWhitespace = !(tagLower == "textarea" || tagLower == "pre" || tagLower == "code")
+                var text: any StringProtocol = collapseWhitespace ? node.stringValue.collapseWhitespaceWithoutTrimming : node.stringValue
+                if collapseWhitespace {
+                    if isFirst {
+                        text = text.leadingSpacesTrimmed
+                    }
+                    if isLast {
+                        text = text.trailingSpacesTrimmed
+                    }
                 }
                 doc.appendInline(text: String(text), with: score)
             case .Element:

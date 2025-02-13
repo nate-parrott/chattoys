@@ -17,9 +17,13 @@ public struct OpenAIEmbedder: Embedder {
                 case .textEmbeddingAda002, .textEmbedding3Small, .textEmbedding3Large: return 1536
                 }
             }
+            
+            var contextLength: Int {
+                8192
+            }
         }
 
-        public init(printCost: Bool = false, truncateToFitTokenLimit: Bool = false, model: Model = .textEmbeddingAda002, dimensions: Int? = nil) {
+        public init(printCost: Bool = false, truncateToFitTokenLimit: Bool = false, model: Model = .textEmbedding3Small, dimensions: Int? = nil) {
             self.printCost = printCost
             self.truncateToFitTokenLimit = truncateToFitTokenLimit
             self.model = model
@@ -46,7 +50,8 @@ public struct OpenAIEmbedder: Embedder {
         request.httpMethod = "POST"
         request.setValue("Bearer \(credentials.apiKey)", forHTTPHeaderField: "Authorization")
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        let body = Request(model: options.model.rawValue, input: documents, dimensions: options.dimensions)
+        let docsTruncated = documents.map({ $0.truncate(toTokens: Int(Double(options.model.contextLength) * 0.9) - 100) })
+        let body = Request(model: options.model.rawValue, input: docsTruncated, dimensions: options.dimensions)
         request.httpBody = try JSONEncoder().encode(body)
         let (data, _) = try await URLSession.shared.data(for: request)
         let response = try JSONDecoder().decode(Response.self, from: data)
