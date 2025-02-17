@@ -514,7 +514,7 @@ private extension LLMMessage {
                 throw ChatGPTError.unsupportedInputAudioFormat(audio.format.rawValue)
             }
         }
-        if self.content.count == 0 || self.content.nilIfEmpty != nil {
+        if content.count == 0 || self.content.nilIfEmpty != nil {
             content.append(.text(self.content))
         }
 
