@@ -87,6 +87,7 @@ public struct LLMMessage: Equatable, Codable {
 
     public var role: Role
     public var content: String
+    public var reasoning: String?
     public var images = [Image]() // For multimodal models. URLs can be base64
     public var inputAudio = [Audio]()
 
@@ -98,10 +99,11 @@ public struct LLMMessage: Equatable, Codable {
 
     // MARK: Initializers
 
-    public init(assistantMessageWithContent content: String, functionCalls: [FunctionCall] = []) {
+    public init(assistantMessageWithContent content: String, functionCalls: [FunctionCall] = [], reasoning: String? = nil) {
         self.role = .assistant
         self.content = content
         self.functionCalls = functionCalls
+        self.reasoning = reasoning
     }
 
     public init(functionResponses: [FunctionResponse]) {

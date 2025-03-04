@@ -14,8 +14,6 @@ public typealias ClaudeNewAPI = Claude
 
 // Uses new message-based claude API
 public struct Claude {
-    static let DEBUG = false
-
     public enum Model: Equatable {
         case claudeInstant12
         case claude2
@@ -46,8 +44,9 @@ public struct Claude {
         public var printToConsole: Bool
         public var responsePrefix: String // Forces the model to use this as the beginning of the response. (This prefix _will_ be included in the output).
         public var stream: Bool
+        public var debug: Bool
 
-        public init(model: Model = .claude3Haiku, maxTokens: Int = 4096, stopSequences: [String] = [], temperature: Double = 0.5, printToConsole: Bool = false, responsePrefix: String = "", stream: Bool = true) {
+        public init(model: Model = .claude3Haiku, maxTokens: Int = 4096, stopSequences: [String] = [], temperature: Double = 0.5, printToConsole: Bool = false, responsePrefix: String = "", stream: Bool = true, debug: Bool = false) {
             self.model = model
             self.maxTokens = maxTokens
             self.stopSequences = stopSequences
@@ -55,6 +54,7 @@ public struct Claude {
             self.printToConsole = printToConsole
             self.responsePrefix = responsePrefix
             self.stream = stream
+            self.debug = debug
         }
     }
 
@@ -108,7 +108,7 @@ extension Claude: ChatLLM, FunctionCallingLLM {
     public func complete(prompt: [LLMMessage], functions: [LLMFunction]) async throws -> LLMMessage {
         let request = try createRequest(prompt: prompt, stream: false, functions: functions)
         let (data, response) = try await URLSession.shared.data(for: request)
-        if Self.DEBUG {
+        if options.debug {
             if (response as? HTTPURLResponse)?.statusCode != 200 {
                 print("[Anthropic] Failed with error: \(String(data: data, encoding: .utf8)!)")
             }
@@ -121,7 +121,7 @@ extension Claude: ChatLLM, FunctionCallingLLM {
     }
 
     public func completeStreaming(prompt: [LLMMessage], functions: [LLMFunction]) -> AsyncThrowingStream<LLMMessage, Error> {
-        if Self.DEBUG {
+        if options.debug {
             return AsyncThrowingStream { cont in
                 Task {
                     do {

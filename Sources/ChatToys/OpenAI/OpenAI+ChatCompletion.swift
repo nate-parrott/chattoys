@@ -40,6 +40,19 @@ public struct ChatGPT {
         case gpt4_32k
         case gpt4_vision_preview
         case custom(String, Int)
+        case custom2(CustomModel)
+        
+        public struct CustomModel: Equatable, Codable {
+            public var name: String
+            public var tokenLimit: Int
+            public var openrouter_reasoning = false
+            
+            public init(name: String, tokenLimit: Int, openrouter_reasoning: Bool = false) {
+                self.name = name
+                self.tokenLimit = tokenLimit
+                self.openrouter_reasoning = openrouter_reasoning
+            }
+        }
 
         public var name: String {
             switch self {
@@ -60,6 +73,7 @@ public struct ChatGPT {
             case .gpt4_32k:
                 return "gpt-4-32k"
             case .gpt4_vision_preview: return "gpt-4-vision-preview"
+            case .custom2(let m): return m.name
             }
         }
 
@@ -71,6 +85,14 @@ public struct ChatGPT {
             case .gpt4_32k: return 32768
             case .gpt4_turbo_preview, .gpt4_turbo, .gpt4_vision_preview, .gpt4_omni: return 128_000
             case .custom(_, let limit): return limit
+            case .custom2(let m): return m.tokenLimit
+            }
+        }
+        
+        var openRouter_reasoning: Bool {
+            switch self {
+            case .custom2(let m): return m.openrouter_reasoning
+            default: return false
             }
         }
     }
@@ -188,6 +210,7 @@ extension ChatGPT: ChatLLM {
             var function: LLMMessage.FunctionCall
         }
         var tool_calls: [ToolCall]?
+        var reasoning: String?
 
         init(assistantWithContent content: [Content], toolCalls: [ToolCall] = []) {
             self.role = .assistant
@@ -266,6 +289,7 @@ extension ChatGPT: ChatLLM {
        var n: Int?
        var prediction: Prediction?
        var provider: Provider?
+       var include_reasoning: Bool?
        
        struct Provider: Encodable {
            var sort: String?
@@ -302,6 +326,7 @@ extension ChatGPT: ChatLLM {
                 var role: Message.Role?
                 var content: String?
                 var tool_calls: [PartialToolCall]?
+                var reasoning: String?
 
                 struct PartialToolCall: Codable {
                     var index: Int
@@ -396,6 +421,9 @@ extension ChatGPT: ChatLLM {
                    if let delta = decoded.choices.first?.delta {
                        message.role = delta.role ?? message.role
                        message.content = [.text(message.contentAsText + (delta.content ?? ""))]
+                       if let r = delta.reasoning {
+                           message.reasoning = (message.reasoning ?? "") + r
+                       }
                        // TODO: Reimplement streaming
                        for toolDelta in delta.tool_calls ?? [] {
                            if message.tool_calls == nil { message.tool_calls = [] }
@@ -459,7 +487,8 @@ extension ChatGPT: ChatLLM {
             logprobs: logProbs ? true : nil,
             n: n,
             prediction: prediction != nil ? .init(content: prediction!) : nil,
-            provider: options.openRouterOptions?.asProviderStruct
+            provider: options.openRouterOptions?.asProviderStruct,
+            include_reasoning: options.model.openRouter_reasoning ? true : nil
         )
 
        var request = URLRequest(url: options.baseURL)
@@ -560,7 +589,7 @@ extension ChatGPT.Message {
         case .assistant:
             return LLMMessage(assistantMessageWithContent: contentAsText, functionCalls: (self.tool_calls ?? []).map({ call in
                 return LLMMessage.FunctionCall(id: call.id, name: call.function.name, arguments: call.function.arguments)
-            }))
+            }), reasoning: reasoning)
         case .system:
             return LLMMessage(role: .system, content: contentAsText)
         case .user:

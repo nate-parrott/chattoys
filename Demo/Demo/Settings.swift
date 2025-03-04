@@ -10,6 +10,7 @@ enum LLM: String, Equatable, Codable, CaseIterable {
     case ollama
     case perplexityOnline7b
     case groq
+    case openrouterReasoning
 
     static func createFunctionCalling() -> (any FunctionCallingLLM)? {
         let llm: LLM = .init(rawValue: UserDefaults.standard.string(forKey: "llm") ?? "") ?? .chatGPT
@@ -26,6 +27,8 @@ enum LLM: String, Equatable, Codable, CaseIterable {
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .gpt4_vision_preview, maxTokens: 4096))
         case .claude:
             return Claude(credentials: AnthropicCredentials(apiKey: key), options: .init(model: .claude3Haiku, printToConsole: true, responsePrefix: ""))
+        case .openrouterReasoning:
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .custom2(ChatGPT.Model.CustomModel(name: "anthropic/claude-3.7-sonnet:thinking", tokenLimit: 128_000, openrouter_reasoning: true)), baseURL: .openRouterOpenAIChatEndpoint))
         case .ollama, .perplexityOnline7b, .groq:
             return nil
         }
@@ -52,6 +55,8 @@ enum LLM: String, Equatable, Codable, CaseIterable {
             return PerplexityLLM(credentials: .init(apiKey: key), options: .init(model: .pplx7bOnline))
         case .groq:
             return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(temp: 0, model: .custom("deepseek-r1-distill-llama-70b", 32000), maxTokens: 1024, stop: ["|user|:"], baseURL: .groqOpenAIChatEndpoint))
+        case .openrouterReasoning:
+            return ChatGPT(credentials: OpenAICredentials(apiKey: key, orgId: orgId), options: .init(model: .custom2(ChatGPT.Model.CustomModel(name: "anthropic/claude-3.7-sonnet:thinking", tokenLimit: 128_000, openrouter_reasoning: true)), baseURL: .openRouterOpenAIChatEndpoint))
         }
     }
 }

@@ -13,7 +13,7 @@ struct ChatDemo: View {
                 messages: messages,
                 id: {_, index in index },
                 messageView: { message in
-                    TextMessageBubble(Text(message.displayText), isFromUser: message.role == .user)
+                    TextMessageBubble(message.displayTextWithReasoning, isFromUser: message.role == .user)
                 },
                 typingIndicator: botIsTyping,
                 headerView: nil
@@ -81,6 +81,14 @@ extension LLMMessage {
             parts.append("[\(images.count) images]")
         }
         return parts.joined(separator: " ")
+    }
+    
+    var displayTextWithReasoning: Text {
+        var t = Text(displayText)
+        if let r = reasoning, r != "" {
+            t = Text(r + "\n").italic() + t
+        }
+        return t
     }
 }
 

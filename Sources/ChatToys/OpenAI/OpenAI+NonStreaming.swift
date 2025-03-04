@@ -91,6 +91,7 @@ extension ChatGPT.Model {
         case .gpt4_turbo_preview: return (1, 3)
         case .gpt4_vision_preview, .gpt4_turbo: return (0, 0) // TODO
         case .custom: return (0, 0)
+        case .custom2: return (0, 0) // TODO
         }
     }
 }
