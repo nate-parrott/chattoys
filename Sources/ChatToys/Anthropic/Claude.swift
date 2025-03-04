@@ -390,7 +390,7 @@ extension LLMMessage {
             m.content.append(claudeImage)
         }
         for call in functionCalls {
-            m.content.append(.init(type: .tool_use, id: call.id, name: call.name, input: call.argumentsAsAnyCodable))
+            m.content.append(.init(type: .tool_use, id: call.id, name: call.name, input: call.argumentsAsAnyCodable ?? [:]))
         }
         for resp in functionResponses {
             m.content.append(.init(type: .tool_result, tool_use_id: resp.id, content: resp.text))
