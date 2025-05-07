@@ -21,6 +21,8 @@ public struct Claude {
         case claude3Sonnet // medium
         case claude3Opus // large
         case claude3_5Sonnet
+        case claude3_7Sonnet
+        case claude3_5Haiku
         case custom(String /* model id */, Int /* token limit */)
 
         var modelId: String {
@@ -31,6 +33,8 @@ public struct Claude {
             case .claude3Sonnet: return "claude-3-sonnet-20240229"
             case .claude3Opus: return "claude-3-opus-20240229"
             case .claude3_5Sonnet: return "claude-3-5-sonnet-20240620"
+            case .claude3_5Haiku: return "claude-3-5-haiku-20241022"
+            case .claude3_7Sonnet: return "claude-3-7-sonnet-20250219"
             case .custom(let id, _): return id
             }
         }
@@ -86,7 +90,7 @@ extension Claude: ChatLLM, FunctionCallingLLM {
     public var tokenLimit: Int {
         switch options.model {
         case .claudeInstant12, .claude2: return 100_000
-        case .claude3Sonnet, .claude3Opus, .claude3Haiku, .claude3_5Sonnet: return 200_000
+        case .claude3Sonnet, .claude3Opus, .claude3Haiku, .claude3_5Sonnet, .claude3_5Haiku, .claude3_7Sonnet: return 200_000
         case .custom(_, let limit): return limit
         }
     }

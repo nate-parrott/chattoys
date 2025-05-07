@@ -8,6 +8,15 @@ public extension URL {
     static var openRouterOpenAIChatEndpoint: URL {
         URL(string: "https://openrouter.ai/api/v1/chat/completions")!
     }
+    
+    static var ollamaOpenAIChatEndpoint: URL {
+        URL(string: "http://localhost:11434/v1/chat/completions")!
+    }
+    
+    static var mistralOpenAIChatEndpoint: URL {
+        // https://api.mistral.ai/v1/chat/completions
+        URL(string: "https://api.mistral.ai/v1/chat/completions")!
+    }
 }
 
 // This comes from the OpenRouter API, not sure if OpenAI themselves do it this way
@@ -37,6 +46,7 @@ public struct ChatGPT {
         case gpt4_turbo_preview
         case gpt4_turbo // includes vision
         case gpt4_omni
+        case gpt4o_mini
         case gpt4_32k
         case gpt4_vision_preview
         case custom(String, Int)
@@ -64,6 +74,8 @@ public struct ChatGPT {
                 return "gpt-3.5-turbo-0125"
             case .gpt4_omni:
                 return "gpt-4o"
+            case .gpt4o_mini:
+                return "gpt-4o-mini"
             case .custom(let string, _):
                 return string
             case .gpt4:
@@ -83,7 +95,7 @@ public struct ChatGPT {
             case .gpt35_turbo_16k, .gpt35_turbo_0125: return 16384
             case .gpt4: return 8192
             case .gpt4_32k: return 32768
-            case .gpt4_turbo_preview, .gpt4_turbo, .gpt4_vision_preview, .gpt4_omni: return 128_000
+            case .gpt4_turbo_preview, .gpt4_turbo, .gpt4_vision_preview, .gpt4_omni, .gpt4o_mini: return 128_000
             case .custom(_, let limit): return limit
             case .custom2(let m): return m.tokenLimit
             }
@@ -202,6 +214,8 @@ extension ChatGPT: ChatLLM {
 
         // For role=tool
         var tool_call_id: String? // For function call responses (role=tool)
+        
+//        var prefix: Bool? // for role=assistant on MISTRAL ONLY
 
         // For role=assistant
         struct ToolCall: Equatable, Codable, Hashable {
@@ -475,7 +489,7 @@ extension ChatGPT: ChatLLM {
    }
 
     func createChatRequest(prompt: [LLMMessage], functions: [LLMFunction], stream: Bool, n: Int? = nil, logProbs: Bool = false) throws -> URLRequest {
-        let cr = try ChatCompletionRequest(
+        var cr = try ChatCompletionRequest(
             messages: prompt.flatMap { try $0.asChatGPT() },
             model: options.model.name,
             temperature: options.temperature,
@@ -490,6 +504,10 @@ extension ChatGPT: ChatLLM {
             provider: options.openRouterOptions?.asProviderStruct,
             include_reasoning: options.model.openRouter_reasoning ? true : nil
         )
+        
+//        if options.baseURL == .mistralOpenAIChatEndpoint, cr.messages.last?.role == .assistant {
+//            cr.messages[cr.messages.count - 1].prefix = true
+//        }
 
        var request = URLRequest(url: options.baseURL)
        request.httpMethod = "POST"

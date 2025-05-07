@@ -44,11 +44,12 @@ extension NSImage {
         } else {
             newSize = CGSize(width: maxDimension * aspect, height: maxDimension)
         }
-        let newImage = NSImage(size: newSize)
-        newImage.lockFocus()
-        draw(in: NSRect(origin: .zero, size: newSize), from: NSRect(origin: .zero, size: size), operation: .sourceOver, fraction: 1)
-        newImage.unlockFocus()
-        return newImage
+        return self.resizeImage(toPixelDimensions: newSize)
+//        let newImage = NSImage(size: newSize)
+//        newImage.lockFocus()
+//        draw(in: NSRect(origin: .zero, size: newSize), from: NSRect(origin: .zero, size: size), operation: .sourceOver, fraction: 1)
+//        newImage.unlockFocus()
+//        return newImage
     }
 
     func asBase64DataURL() -> URL? {
@@ -63,6 +64,42 @@ extension NSImage {
         }
         let base64String = data.base64EncodedString()
         return URL(string: "data:image/jpeg;base64,\(base64String)")
+    }
+}
+
+extension NSImage {
+    func resizeImage(toPixelDimensions newSize: NSSize) -> NSImage? {
+        let sourceImage = self
+        if !sourceImage.isValid { return nil }
+        
+        guard let rep = NSBitmapImageRep(
+            bitmapDataPlanes: nil,
+            pixelsWide: Int(newSize.width),
+            pixelsHigh: Int(newSize.height),
+            bitsPerSample: 8,
+            samplesPerPixel: 4,
+            hasAlpha: true,
+            isPlanar: false,
+            colorSpaceName: .calibratedRGB,
+            bytesPerRow: 0,
+            bitsPerPixel: 0
+        ) else {
+            return nil
+        }
+        
+        rep.size = newSize
+        
+        NSGraphicsContext.saveGraphicsState()
+        NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: rep)
+        sourceImage.draw(in: NSRect(x: 0, y: 0, width: newSize.width, height: newSize.height),
+                        from: .zero,
+                        operation: .copy,
+                        fraction: 1.0)
+        NSGraphicsContext.restoreGraphicsState()
+        
+        let newImage = NSImage(size: newSize)
+        newImage.addRepresentation(rep)
+        return newImage
     }
 }
 
